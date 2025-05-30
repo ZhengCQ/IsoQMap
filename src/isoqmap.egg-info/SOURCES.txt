@@ -1,0 +1,10 @@
+LICENSE
+README.md
+pyproject.toml
+setup.py
+src/isoqmap.egg-info/PKG-INFO
+src/isoqmap.egg-info/SOURCES.txt
+src/isoqmap.egg-info/dependency_links.txt
+src/isoqmap.egg-info/entry_points.txt
+src/isoqmap.egg-info/requires.txt
+src/isoqmap.egg-info/top_level.txt

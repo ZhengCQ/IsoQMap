@@ -16,8 +16,6 @@ class PathFinder:
         dev_path = Path(__file__).absolute().parent.parent
         if dev_path.exists():
             paths.append(dev_path)
-
-        print(paths)
         
         
         # 2. Conda环境路径（如果检测到Conda）

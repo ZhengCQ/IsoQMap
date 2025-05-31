@@ -58,3 +58,22 @@ def check_file_exists(
         logger.info(f"Found {file_description}: {file_path}")
     
     return True
+
+import logging
+
+def setup_logger(log_file, verbose):
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+    # 防止重复添加 handler
+    if not logger.handlers:
+        fh = logging.FileHandler(log_file)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+
+        ch = logging.StreamHandler()
+        ch.setFormatter(formatter)
+        ch.setLevel(logging.DEBUG if verbose else logging.INFO)
+        logger.addHandler(ch)

@@ -1,5 +1,0 @@
-click
-pandas
-numpy
-scipy
-statsmodels

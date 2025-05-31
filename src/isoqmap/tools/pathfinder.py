@@ -3,7 +3,8 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-class PathFinder:
+class BinPathFinder:
+    """找到软件主目录"""
     def __init__(self, package_name: str):
         self.package_name = package_name
         self.search_paths = self._init_search_paths()

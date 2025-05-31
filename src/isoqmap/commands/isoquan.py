@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import sys
 import logging
 import datetime
 import configparser
@@ -9,8 +8,10 @@ import subprocess
 import threading
 import queue
 from time import asctime
-from ..tools.pathfinder import PathFinder
-from ..tools.common import check_file_exists
+from ..tools import pathfinder, common
+
+#from ..tools.pathfinder import PathFinder
+#from ..tools.common import check_file_exists
 
 import pandas as pd
 import click
@@ -18,7 +19,7 @@ import click
 # Configure logging
 FORMAT = '%(asctime)s %(message)s'
 logger = logging.getLogger(__name__)
-binfinder = PathFinder('isomap')
+binfinder = pathfinder.BinPathFinder('isomap')
 
 class JobStatus(object):
     def __init__(self, sh_nm, df_status):
@@ -90,12 +91,12 @@ def read_sampleinfo(infile):
 
 def index_ref(outdir, config, xaem_dir, refdb, step=1):
     transcript = config.get('xaem', 'transcript_fa') if config.get('xaem', 'transcript_fa') else str(binfinder.find(f'../../data/ref/{refdb}/transcript.fa.gz'))
-    check_file_exists(
+    common.check_file_exists(
         transcript,
         file_description=f"transcript file is {transcript} for {refdb}",
         logger=logger
     )
-
+    
     cmd = ''
     outfa = f'{outdir}/ref/{os.path.basename(transcript).replace(".gz", "")}'
     index_dir = f'{outdir}/ref/TxIndexer_idx'
@@ -151,6 +152,7 @@ def count_matrix(outdir, xaem_dir, config, x_matrix, step=3):
     logger.warning(f'Parameter: x_matrix is {x_matrix}')
     resdir = f'{outdir}/results'
     
+    
     cmd = f"Rscript {xaem_dir}/R/Create_count_matrix.R workdir={resdir} core=8 design.matrix={x_matrix}\n"
     cmd += f"""Rscript {xaem_dir}/R/AEM_update_X_beta.R \\
         workdir={resdir} \\
@@ -183,7 +185,13 @@ def get_all_shells(outdir, df_sample, config, xaem_dir, refdb, xaem_index=None, 
 
     # Count matrix and update beta
     if not x_matrix:
-        x_matrix = config.get('xaem', 'x_matrix') if config.get('xaem', 'x_matrix') else binfinder.find(f'../../data/ref/{refdb}/X_matrix.RData')
+        x_matrix = config.get('xaem', 'x_matrix') if config.get('xaem', 'x_matrix') else binfinder.find(f'./resources/ref/{refdb}/X_matrix.RData')
+    
+    common.check_file_exists(
+        x_matrix,
+        file_description=f"transcript file is {x_matrix} for {refdb}",
+        logger=logger
+    )
     
     cmd = count_matrix(outdir, xaem_dir, config, x_matrix, step=step_n)
     shell_info.append([cmd, step_n, 'matrix'])
@@ -211,20 +219,23 @@ def single_job_run(sh_nm, df, status_file):
     return df_status
 
 def run_isoquan(infile, ref, config, outdir, xaem_dir, xaem_index, x_matrix, force):
-    """Run the full XAEM pipeline"""
+    """Run the full isoform quantification"""
     # Read configuration
 
     cfg = configparser.ConfigParser()
     if config:
         cfg.read(config, encoding="utf-8")
     else:
-        cfg.read(binfinder.find(f'data/config/config.ini'), encoding="utf-8")
+        cfg.read(binfinder.find(f'./config.ini'), encoding="utf-8")
 
     # Set XAEM directory
     if not xaem_dir:
-        xaem_dir = cfg.get('xaem', 'xaem_dir') if cfg.get('xaem', 'xaem_dir') else binfinder.find(f'./tools/XAEM/XAEM-binary-0.1.1-cq')
-    print(binfinder.find(f'./tools/XAEM/XAEM-binary-0.1.1-cq'))
+        xaem_dir = cfg.get('xaem', 'xaem_dir') if cfg.get('xaem', 'xaem_dir') else binfinder.find(f'./resources/XAEM/XAEM-binary-0.1.1-cq')
     logger.warning(f'Parameter: xaem_dir is {xaem_dir}')
+    if not xaem_dir.exists():
+        raise FileNotFoundError(f"XAEM binary not found at {xaem_dir}")
+    
+
 
     # Create output directories
     outdir = os.path.abspath(outdir)
@@ -326,14 +337,14 @@ logger = logging.getLogger(__name__)
 @click.option('--x-matrix', help='X matrix file')
 @click.option('--force', is_flag=True, help='Force to restart all jobs')
 def isoquan(verbose, infile, ref, **kwargs):
-    """Auto pipeline for XAEM"""
-    # 初始化日志
-    log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}info.log'
-    logging.basicConfig(
-        format=FORMAT,
-        filename=log_file,
-        level=logging.DEBUG if verbose else logging.INFO
-    )
+    """Isoform quantification"""
+    # 设置日志路径
+    log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}_info.log'
+
+    # 初始化日志（自定义的 setup_logger 里完成 format 和 level 设置）
+    common.setup_logger(log_file, verbose)
+    
+    logger = logging.getLogger(__name__)
     logger.info(f'Project starting\nLog file: {log_file}')
     
     # 调用核心逻辑

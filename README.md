@@ -26,6 +26,13 @@ install.packages("doParallel")
 ```
 In python 
 
+## conda
+```
+conda create -n IsoQMap python=3.8
+conda activate IsoQMap
+``` 
+
+
 
 ## qucik start
 ```

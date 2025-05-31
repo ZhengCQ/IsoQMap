@@ -38,7 +38,6 @@ class BinPathFinder:
             Path('/usr/share') / self.package_name
         ]
         paths.extend(p for p in sys_paths if p.exists())
-        print(paths)
         return paths
     
     def find(self, relative_path: str) -> Optional[Path]:

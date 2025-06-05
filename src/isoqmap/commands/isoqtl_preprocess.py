@@ -24,25 +24,54 @@ def check_input_files(isoform_file, cov_file, refdb):
         os.system(f'Rscript {script_path} inRdata={isoform_file}')
         isoform_file = isoform_file.replace(".RData", "_tpm.tsv")
         logger.info(f'Converted RData to: {isoform_file}')
-
-    df_exp = pd.read_csv(isoform_file, sep='\t', index_col=0)
+    
+    ## covariate
+    logger.info(f'Reading covariate file {cov_file} and checking covariate samples')
     df_cov = pd.read_csv(cov_file, sep='\t', index_col=0)
+    logger.info(f'There are {df_cov.shape[1]} Samples and {df_cov.shape[0]} items for adjust in covariate file.')
+    ### Read expression file for columns
+    logger.info(f'Prereading expression file {isoform_file}...')
+    df_exp_head = pd.read_csv(isoform_file, sep='\t', index_col=0,nrows=1)
+    logger.info(f'There are {df_exp_head.shape[1]} Samples in expression file.')
 
-    common_samples = df_exp.columns.intersection(df_cov.index)
-    match_ratio = len(common_samples) / df_cov.shape[0]
+    
+    
+    common_samples = df_exp_head.columns.intersection(df_cov.columns)
+    match_ratio = len(common_samples) / df_cov.shape[1]
 
     if match_ratio < 0.8:
         logger.error(f'Only {match_ratio:.2%} of covariate samples are found in isoform expression matrix. Aborting.')
         sys.exit(1)
     elif match_ratio < 1.0:
-        logger.warning(f'{match_ratio:.2%} of covariate samples matched. Filtering unmatched samples.')
-        df_cov = df_cov.loc[common_samples]
-        df_exp = df_exp[common_samples]
+        logger.warning(f'{len(common_samples)} out of {df_exp_head.shape[1]} samples matched. Filtering unmatched samples.')
     elif match_ratio == 1:
-        logger.warning(f'{match_ratio:.2%} of covariate samples matched. Keep going.')
-        
+        logger.warning(f'{len(common_samples)} out of {df_exp_head.shape[1]} samples matched. Keep going.')
+
+    
+    df_cov = df_cov[common_samples]
+    ## expression file
+    logger.info(f'Re reading expression file {isoform_file}...')
+    df_exp = pd.read_csv(isoform_file, sep='\t', index_col=0)[common_samples]
+    logger.info(f'There are {df_exp.shape[1]} Samples and {df_exp.shape[0]} isoform transcripts in expression file.')
+
+    
+    ## annotation file
     gene_info_fi = binfinder.find(f'./resources/ref/{refdb}/transcript_gene_info.tsv.gz')
-    df_anno = pd.read_csv(gene_info_fi, sep='\t').set_index('transcript_id')
+    common.check_file_exists(
+        gene_info_fi,
+        file_description=f"Gene annotaion file {gene_info_fi}",
+        logger=logger
+    )
+
+    logger.info(f'Reading annotation file {gene_info_fi}...')
+    df_anno = pd.read_csv(gene_info_fi, sep='\t',index_col=0)
+
+    common_transcript = df_exp.index.intersection(df_anno.index)
+
+
+    logger.warning(f'{len(common_transcript)} out of {df_exp.shape[0]} transcript matched. Filtering unmatched trascripts.')
+    
+    df_exp = df_exp.loc[common_transcript]
 
     return df_exp, df_anno, df_cov
 
@@ -140,7 +169,7 @@ def write_and_export(norm_result, out_prefix, force=False):
     
 
 def exp2BOD(efile, outpre):
-    osca_bin = binfinder('./resources/osca/osca')
+    osca_bin = binfinder('./resources/osca')
     common.check_file_exists(
         osca_bin,
         file_description=f"OSCA in :{osca_bin}",
@@ -214,7 +243,7 @@ def preprocess(verbose, isoform, covariates, **kwargs):
     logger.info(f'Project starting\nLog file: {log_file}')
     
     # 调用核心逻辑
-    run_preprocess(isoform==isoform, covariates=covariates, **kwargs)
+    run_preprocess(isoform=isoform, covariates=covariates, **kwargs)
 
 if __name__ == '__main__':
     preprocess()

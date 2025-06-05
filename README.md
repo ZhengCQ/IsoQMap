@@ -48,7 +48,7 @@ sh run_example.sh
 
 
 #### Input files
-In `/path/to/Tissue1`, create a file `/path/to/Tissue1/infastq_lst.tsv` listing the FASTQ input files. The file is a tab-delimited text file with 4 columns: `Sample name`, `Source name`, `FASTQ file name for paired-end read 1`, and `FASTQ file name for paired-end read 2`. `Source name` indicates the batch or sequencing library of the sample, so that the same sample may correspond to more than one sources. A standard example, where each sample has only a single batch or multiple batches, is given as `/path/to/iGTEx_XAEM/Example/infastq_lst.tsv`:
+In `/path/to/workdir`, create a file `/path/to/workdir/infastq_lst.tsv` listing the FASTQ input files. The file is a tab-delimited text file with 4 columns: `Sample name`, `Source name`, `FASTQ file name for paired-end read 1`, and `FASTQ file name for paired-end read 2`. `Source name` indicates the batch or sequencing library of the sample, so that the same sample may correspond to more than one sources. A standard example, where each sample has only a single batch or multiple batches, is given as `/path/to/isoqmap/Example/infastq_lst.tsv`:
 
 ##### single batch
 ```
@@ -84,8 +84,9 @@ isoqmap isoquan -i /path/to/Tissue1/infastq_lst.tsv
 ```
 -c /path/to/Tissue1_config.ini
 ```
-An example of the `config.ini` file can be found in `/path/to/iGTEx_XAEM/`.
+An example of the `config.ini` file can be found in `/path/to/isoqmap/config.ini/`.
 
+### Prepare for QTL mapping
 
 #### Calculate isoform ratio  
 Isoform ratio can be easily run with

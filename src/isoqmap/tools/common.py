@@ -59,21 +59,30 @@ def check_file_exists(
     
     return True
 
+
 import logging
 
 def setup_logger(log_file, verbose):
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+    logger.setLevel(logging.DEBUG)  # 统一设为 DEBUG，控制输出交给 handler
 
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter('%Y-%m-%d %H:%M:%S - %(levelname)s - %(message)s')
 
-    # 防止重复添加 handler
-    if not logger.handlers:
-        fh = logging.FileHandler(log_file)
-        fh.setFormatter(formatter)
-        logger.addHandler(fh)
+    # 清空旧 handler，防止重复输出
+    if logger.hasHandlers():
+        logger.handlers.clear()
 
+    # 文件日志：永远写入
+    fh = logging.FileHandler(log_file)
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
+    # 控制台日志：只有 verbose 为 True 才输出
+    if verbose:
         ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
         ch.setFormatter(formatter)
-        ch.setLevel(logging.DEBUG if verbose else logging.INFO)
         logger.addHandler(ch)
+
+    return logger  # 可选：返回 logger 用于进一步自定义

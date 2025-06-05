@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 name = "isoqmap"
 version = "0.1.0"
 description = "IsoQMap CLI tool"
-authors = [{name = "Your Name"}]
+authors = [{name = "Chenqing Zheng"}]
 
 [project.scripts]
 isoqmap = "isoqmap.main:cli"

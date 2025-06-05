@@ -35,7 +35,6 @@ def check_input_files(isoform_file, cov_file, refdb):
     logger.info(f'There are {df_exp_head.shape[1]} Samples in expression file.')
 
     
-    
     common_samples = df_exp_head.columns.intersection(df_cov.columns)
     match_ratio = len(common_samples) / df_cov.shape[1]
 
@@ -67,8 +66,6 @@ def check_input_files(isoform_file, cov_file, refdb):
     df_anno = pd.read_csv(gene_info_fi, sep='\t',index_col=0)
 
     common_transcript = df_exp.index.intersection(df_anno.index)
-
-
     logger.warning(f'{len(common_transcript)} out of {df_exp.shape[0]} transcript matched. Filtering unmatched trascripts.')
     
     df_exp = df_exp.loc[common_transcript]
@@ -126,8 +123,10 @@ class CallNorm(object):
         logger.info(f'Expression samples: {exp_mtx.shape[0]} | Covariate samples: {covariates.shape[0]}')
 
         exp_mtx = exp_mtx.merge(covariates, left_index=True, right_index=True)
-        logger.info(f'Merged samples: {exp_mtx.shape[0]}')
-
+        #logger.info(f'Merged samples: {exp_mtx.shape[0]}')
+        logger.info(f'Starting pre adjust ...')
+        
+        
         resid_infos = [
             sm.OLS(exp_mtx[pheno], sm.add_constant(exp_mtx[covs])).fit().resid
             for pheno in phenos
@@ -201,24 +200,39 @@ def run_preprocess(isoform, covariates, ref, isoform_ratio, prefix, outdir, tpm_
     os.makedirs(out_bod, exist_ok=True)
 
     logger.info(f'Processing isoform file: {isoform}')
+
+    # Step 1: Check and load input files
+    logger.info('Checking and loading input files...')
     df_exp, df_anno, df_cov = check_input_files(isoform, covariates, ref)
+
+    # Step 2: Filter isoform and gene expression data
+    logger.info('Filtering isoform and gene expression data based on thresholds...')
     df_gene, df_iso = filtered_isoform(df_exp, df_anno, tpm_threshold, sample_threshold_ratio)
 
-    # Isoform abundance normalization
+    # Step 3: Isoform abundance normalization
+    logger.info('Performing isoform abundance normalization...')
     res_iso_abund = CallNorm(df_iso, df_cov.T, isratio=False)
     out_prefix_iso_abund = os.path.join(out_bod, f'{prefix}.isoform_abundance')
+    logger.info(f'Writing isoform abundance output to: {out_prefix_iso_abund}')
     write_and_export(res_iso_abund, out_prefix_iso_abund, force=force)
 
-    # Isoform splice ratio normalization (only if requested)
+    # Step 4: Isoform splice ratio normalization (conditional)
     if isoform_ratio:
+        logger.info('Performing isoform splice ratio normalization...')
         res_iso_ratio = CallNorm(df_iso, df_cov.T, isratio=True)
         out_prefix_iso_ratio = os.path.join(out_bod, f'{prefix}.isoform_splice_ratio')
+        logger.info(f'Writing isoform splice ratio output to: {out_prefix_iso_ratio}')
         write_and_export(res_iso_ratio, out_prefix_iso_ratio, force=force)
+    else:
+        logger.info('Isoform splice ratio normalization not requested. Skipping.')
 
-    # Gene abundance normalization
+    # Step 5: Gene abundance normalization
+    logger.info('Performing gene abundance normalization...')
     res_gene = CallNorm(df_gene, df_cov.T, isratio=False)
     out_prefix_gene = os.path.join(out_bod, f'{prefix}.gene_abundance')
+    logger.info(f'Writing gene abundance output to: {out_prefix_gene}')
     write_and_export(res_gene, out_prefix_gene, force=force)
+    logger.info('All normalization steps completed.')
          
     
 @click.command()

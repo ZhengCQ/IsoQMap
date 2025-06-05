@@ -1,0 +1,220 @@
+import os
+import sys
+import click
+import pandas as pd
+import numpy as np
+import datetime
+import scipy.stats as stats
+import statsmodels.api as sm
+from ..tools import pathfinder,common
+import logging
+import subprocess
+
+
+# Configure logging
+FORMAT = '%(asctime)s %(message)s'
+logging.basicConfig(level=logging.INFO, format=FORMAT)
+logger = logging.getLogger(__name__)
+binfinder = pathfinder.BinPathFinder('isomap')
+
+
+def check_input_files(isoform_file, cov_file, refdb):
+    if isoform_file.endswith('RData'):
+        script_path = binfinder.find('tools/isoform_rdata2exp.R')
+        os.system(f'Rscript {script_path} inRdata={isoform_file}')
+        isoform_file = isoform_file.replace(".RData", "_tpm.tsv")
+        logger.info(f'Converted RData to: {isoform_file}')
+
+    df_exp = pd.read_csv(isoform_file, sep='\t', index_col=0)
+    df_cov = pd.read_csv(cov_file, sep='\t', index_col=0)
+
+    common_samples = df_exp.columns.intersection(df_cov.index)
+    match_ratio = len(common_samples) / df_cov.shape[0]
+
+    if match_ratio < 0.8:
+        logger.error(f'Only {match_ratio:.2%} of covariate samples are found in isoform expression matrix. Aborting.')
+        sys.exit(1)
+    elif match_ratio < 1.0:
+        logger.warning(f'{match_ratio:.2%} of covariate samples matched. Filtering unmatched samples.')
+        df_cov = df_cov.loc[common_samples]
+        df_exp = df_exp[common_samples]
+    elif match_ratio == 1:
+        logger.warning(f'{match_ratio:.2%} of covariate samples matched. Keep going.')
+        
+    gene_info_fi = binfinder.find(f'./resources/ref/{refdb}/transcript_gene_info.tsv.gz')
+    df_anno = pd.read_csv(gene_info_fi, sep='\t').set_index('transcript_id')
+
+    return df_exp, df_anno, df_cov
+
+
+def filtered_isoform(df_exp, df_anno, tpm_threshold=0.1, sample_threshold_ratio=0.2):
+    threshold_count = df_exp.shape[1] * sample_threshold_ratio
+    low_exp_mask = (df_exp >= tpm_threshold).sum(axis=1) <= threshold_count
+    logger.info(f'{low_exp_mask.sum()} isoforms excluded (TPM < {tpm_threshold} in > {100*(1-sample_threshold_ratio):.0f}% samples)')
+
+    df_exp = df_exp[~low_exp_mask]
+
+    df_exp = df_anno[['gene_id']].merge(df_exp, left_index=True, right_index=True)
+
+    df_gene_exp = df_exp.groupby('gene_id').sum()
+    logger.info(f'{df_gene_exp.shape[0]} genes, {df_gene_exp.shape[1]} samples retained')
+
+    multi_iso_genes = df_exp['gene_id'].value_counts()
+    multi_iso_genes = multi_iso_genes[multi_iso_genes > 1].index
+    df_iso_exp = df_exp[df_exp['gene_id'].isin(multi_iso_genes)]
+    logger.info(f'{df_iso_exp.shape[0]} isoforms retained (multi-isoform genes only)')
+
+    return df_gene_exp, df_iso_exp
+
+
+class CallNorm(object):
+    def __init__(self, exp, cov, isratio):
+        self.df_exp = exp
+        self.df_cov = cov
+        self.isratio = isratio
+        self.df_pheo = None
+        self.main()
+
+    def zscore(self, x):
+        x = pd.Series(x)
+        return stats.norm.ppf((x.rank() - 0.5) / (~pd.isnull(x)).sum())
+
+    def norm(self, df):
+        df_in = df.copy().iloc[:, 1:]
+        df_in.fillna(0, inplace=True)
+        df_in.loc[:, :] = [self.zscore(row) for row in df_in.values]
+        return df_in.T
+
+    def splice_ratio(self):
+        df = self.df_exp
+        ratio = df.iloc[:, 1:] / df.groupby('gene_id')[df.columns[1:]].transform('sum')
+        return self.norm(ratio)
+
+    def lm_covariates(self, exp_mtx, covariates, phenos=None, covs=None):
+        phenos = phenos or list(exp_mtx.columns)
+        covs = covs or list(covariates.columns)
+
+        logger.info(f'Expression samples: {exp_mtx.shape[0]} | Covariate samples: {covariates.shape[0]}')
+
+        exp_mtx = exp_mtx.merge(covariates, left_index=True, right_index=True)
+        logger.info(f'Merged samples: {exp_mtx.shape[0]}')
+
+        resid_infos = [
+            sm.OLS(exp_mtx[pheno], sm.add_constant(exp_mtx[covs])).fit().resid
+            for pheno in phenos
+        ]
+        return pd.DataFrame(resid_infos, index=phenos, columns=exp_mtx.index).T
+
+    def main(self):
+        if self.df_exp.shape[1] <= 1:
+            raise ValueError("Expression matrix has no sample columns")
+
+        df_norm = self.splice_ratio() if self.isratio else self.norm(self.df_exp)
+        self.df_pheo = self.lm_covariates(df_norm, self.df_cov)
+
+
+def write_file(df, out_path):
+    logger.info(f'Writing to: {out_path}')
+    df.index = ['-'.join(i.split('-')[0:2]) for i in df.index]
+    df.index.name = 'IID'
+    df.to_csv(out_path, sep='\t')
+    
+def write_and_export(norm_result, out_prefix, force=False):
+    """
+    写出表达矩阵，并导出BOD文件
+    """
+    out_tsv = f"{out_prefix}.ExpNorm.tsv"
+    out_bod = f"{out_prefix}.bod"
+
+    # 写表达矩阵
+    if os.path.exists(out_tsv) and not force:
+        logger.warning(f"Output file exists: {out_tsv}. Skipping.")
+    else:
+        write_file(norm_result.df_pheo, out_tsv)
+
+    # 写 .bod 文件
+    if os.path.exists(out_bod) and not force:
+        logger.warning(f"Output file exists: {out_bod}. Skipping.")
+    else:
+        exp2BOD(norm_result, out_prefix)
+    
+
+def exp2BOD(efile, outpre):
+    osca_bin = binfinder('./resources/osca/osca')
+    common.check_file_exists(
+        osca_bin,
+        file_description=f"OSCA in :{osca_bin}",
+        logger=logger
+    )
+
+    cmd = [
+        osca_bin,
+        '--efile', efile,
+        '--gene-expression',
+        '--make-bod',
+        '--no-fid',
+        '--out', outpre
+    ]
+
+    logger.info(f"Running OSCA command: {' '.join(cmd)}")
+
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"OSCA failed with return code {e.returncode}")
+        raise RuntimeError("OSCA execution failed") from e
+
+
+def run_preprocess(isoform, covariates, ref, isoform_ratio, prefix, outdir, tpm_threshold, sample_threshold_ratio, force=False):
+    outdir = os.path.abspath(outdir or os.path.dirname(isoform))
+    os.makedirs(outdir, exist_ok=True)
+    out_bod = os.path.join(outdir, 'BOD_files')
+    os.makedirs(out_bod, exist_ok=True)
+
+    logger.info(f'Processing isoform file: {isoform}')
+    df_exp, df_anno, df_cov = check_input_files(isoform, covariates, ref)
+    df_gene, df_iso = filtered_isoform(df_exp, df_anno, tpm_threshold, sample_threshold_ratio)
+
+    # Isoform abundance normalization
+    res_iso_abund = CallNorm(df_iso, df_cov.T, isratio=False)
+    out_prefix_iso_abund = os.path.join(out_bod, f'{prefix}.isoform_abundance')
+    write_and_export(res_iso_abund, out_prefix_iso_abund, force=force)
+
+    # Isoform splice ratio normalization (only if requested)
+    if isoform_ratio:
+        res_iso_ratio = CallNorm(df_iso, df_cov.T, isratio=True)
+        out_prefix_iso_ratio = os.path.join(out_bod, f'{prefix}.isoform_splice_ratio')
+        write_and_export(res_iso_ratio, out_prefix_iso_ratio, force=force)
+
+    # Gene abundance normalization
+    res_gene = CallNorm(df_gene, df_cov.T, isratio=False)
+    out_prefix_gene = os.path.join(out_bod, f'{prefix}.gene_abundance')
+    write_and_export(res_gene, out_prefix_gene, force=force)
+         
+    
+@click.command()
+@click.option('--verbose', is_flag=True, help='Enable verbose output')
+@click.option('--isoform', '-i', required=True, help='Isoform expression file.')
+@click.option('--covariates', required=True, help='Covariate file.')
+@click.option('--ref', default='gencode_38', type=click.Choice(['refseq_38', 'gencode_38']), help='Reference database.')
+@click.option('--isoform-ratio', is_flag=True, help='Calculate isoform expression splice ratio.')
+@click.option('--prefix', default='IsoQ', help='Output file prefix.')
+@click.option('--outdir', default=None, help='Output directory.')
+@click.option('--tpm-threshold', default=0.1, show_default=True, help='TPM threshold for filtering.')
+@click.option('--sample-threshold-ratio', default=0.2, show_default=True, help='Minimum fraction of samples where isoform must pass TPM threshold.')
+def preprocess(verbose, isoform, covariates, **kwargs):
+    """Isoform quantification"""
+    # 设置日志路径
+    log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.isoqtl.preprocess.info.log'
+
+    # 初始化日志（自定义的 setup_logger 里完成 format 和 level 设置）
+    common.setup_logger(log_file, verbose)
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f'Project starting\nLog file: {log_file}')
+    
+    # 调用核心逻辑
+    run_preprocess(isoform==isoform, covariates=covariates, **kwargs)
+
+if __name__ == '__main__':
+    preprocess()

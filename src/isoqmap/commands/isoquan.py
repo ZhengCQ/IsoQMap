@@ -7,7 +7,8 @@ import configparser
 import subprocess
 import threading
 import queue
-from time import asctime
+import shutil
+import sys
 from ..tools import pathfinder, common
 
 #from ..tools.pathfinder import PathFinder
@@ -16,9 +17,6 @@ from ..tools import pathfinder, common
 import pandas as pd
 import click
 
-# Configure logging
-FORMAT = '%(asctime)s %(message)s'
-logger = logging.getLogger(__name__)
 binfinder = pathfinder.BinPathFinder('isomap')
 
 class JobStatus(object):
@@ -90,7 +88,7 @@ def read_sampleinfo(infile):
     return df
 
 def index_ref(outdir, config, xaem_dir, refdb, step=1):
-    transcript = config.get('xaem', 'transcript_fa') if config.get('xaem', 'transcript_fa') else str(binfinder.find(f'../../data/ref/{refdb}/transcript.fa.gz'))
+    transcript = config.get('xaem', 'transcript_fa') if config.get('xaem', 'transcript_fa') else str(binfinder.find(f'./resources/ref/{refdb}/transcript.fa.gz'))
     common.check_file_exists(
         transcript,
         file_description=f"transcript file is {transcript} for {refdb}",
@@ -317,10 +315,10 @@ def run_isoquan(infile, ref, config, outdir, xaem_dir, xaem_index, x_matrix, for
         logger.warning(f'Matrix not finished. Please check {shell_lst[0]} carefully!')
 
 
-
 # 配置日志（保持不变）
 FORMAT = '%(asctime)s %(message)s'
 logger = logging.getLogger(__name__)
+
 
 @click.command()
 @click.option('--verbose', is_flag=True, help='Enable verbose output')
@@ -339,7 +337,7 @@ logger = logging.getLogger(__name__)
 def isoquan(verbose, infile, ref, **kwargs):
     """Isoform quantification"""
     # 设置日志路径
-    log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}_info.log'
+    log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.isoquan.info.log'
 
     # 初始化日志（自定义的 setup_logger 里完成 format 和 level 设置）
     common.setup_logger(log_file, verbose)

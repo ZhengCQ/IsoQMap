@@ -8,6 +8,14 @@ name = "isoqmap"
 version = "0.1.0"
 description = "IsoQMap CLI tool"
 authors = [{name = "Chenqing Zheng"}]
+dependencies = [
+  "click",
+  "pandas",
+  "requests",
+  "scipy",
+  "statsmodels"
+]
+
 
 [project.scripts]
 isoqmap = "isoqmap.main:cli"

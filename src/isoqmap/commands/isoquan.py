@@ -324,7 +324,7 @@ logger = logging.getLogger(__name__)
 @click.option('--verbose', is_flag=True, help='Enable verbose output')
 @click.option('-i', '--infile', required=True, type=click.Path(exists=True),
               help='File for sample information (sample name\\tdata source name\\tfq1\\tfq2)')
-@click.option('--ref', type=click.Choice(['refseq_38', 'gencode_38']), 
+@click.option('--ref', type=click.Choice(['refseq_38', 'gencode_38','pig_110']), 
               default='gencode_38', help='Reference transcript')
 @click.option('-c', '--config', type=click.Path(exists=True), 
               help='Configuration file')

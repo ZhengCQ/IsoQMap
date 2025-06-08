@@ -15,17 +15,28 @@ REFERENCE_DATA = {
         "transcript": {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.transcript.fa.gz",
             "sha256": "172d04be1deaf2fd203c2d9063b2e09b33e3036dd2f169d57d996a6e8448fe94"  
-        }
+        }, 
     },
     "refseq_38": {
         "X_matrix": {
-            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/refseq_38.X_matrix.RData.gz",
-            "sha256": "..."  # 填写实际 hash
+            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/refseq_38.110.X_matrix.RData",
+            "sha256": "9c758d2177065e0d8ae4fc8b5d6bcb3d45e7fe8f9a0151669a1eee230f2992d1"
         },
         "transcript": {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/refseq_38.transcript.fa.gz",
             "sha256": "..."
-        }
+        },
+    "pig_110":{
+        "X_matrix": {
+            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/pig_110.X_matrix.RData.gz",
+            "sha256": "900cd4a7e037e3ac11eb9b0d0c08f7b3fea488321a16b7d000d8312d647e5795"  
+        },
+        "transcript": {
+            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/pig_110.transcript.fa.gz",
+            "sha256": "09379a4f747525eea821a1f56e79a6dacfe4a4a2f3f0c9d43e3fa1c8a37ed53d"  
+        }, 
+        
+    }
     },
     # 可添加更多版本
 }

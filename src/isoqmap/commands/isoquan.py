@@ -17,7 +17,7 @@ from ..tools import pathfinder, common
 import pandas as pd
 import click
 
-binfinder = pathfinder.BinPathFinder('isomap')
+binfinder = pathfinder.BinPathFinder('isoqmap')
 
 class JobStatus(object):
     def __init__(self, sh_nm, df_status):
@@ -224,6 +224,9 @@ def run_isoquan(infile, ref, config, outdir, xaem_dir, xaem_index, x_matrix, for
     if config:
         cfg.read(config, encoding="utf-8")
     else:
+        
+        print(binfinder.find(f'./config.ini'))
+        
         cfg.read(binfinder.find(f'./config.ini'), encoding="utf-8")
 
     # Set XAEM directory

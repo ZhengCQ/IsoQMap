@@ -64,25 +64,26 @@ import logging
 
 def setup_logger(log_file, verbose):
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)  # 统一设为 DEBUG，控制输出交给 handler
+    logger.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter('%Y-%m-%d %H:%M:%S - %(levelname)s - %(message)s')
+    formatter = logging.Formatter(
+        '%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
 
-    # 清空旧 handler，防止重复输出
     if logger.hasHandlers():
         logger.handlers.clear()
 
-    # 文件日志：永远写入
     fh = logging.FileHandler(log_file)
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
-    # 控制台日志：只有 verbose 为 True 才输出
     if verbose:
         ch = logging.StreamHandler()
         ch.setLevel(logging.DEBUG)
         ch.setFormatter(formatter)
         logger.addHandler(ch)
 
-    return logger  # 可选：返回 logger 用于进一步自定义
+    return logger
+

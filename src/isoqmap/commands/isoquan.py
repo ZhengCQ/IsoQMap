@@ -340,7 +340,7 @@ logger = logging.getLogger(__name__)
 def isoquan(verbose, infile, ref, **kwargs):
     """Isoform quantification"""
     # 设置日志路径
-    log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.isoquan.info.log'
+    log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d")}.isoquan.info.log'
 
     # 初始化日志（自定义的 setup_logger 里完成 format 和 level 设置）
     common.setup_logger(log_file, verbose)

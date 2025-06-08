@@ -9,11 +9,11 @@ import os
 REFERENCE_DATA = {
     "gencode_38": {
         "X_matrix": {
-            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.X_matrix.RData.gz",
-            "sha256": "f088e4f29e9d582fca4e6e4b46a7e08a8358d89a3661c910bbe73c44a80e52d0"  
+            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.v41.transcript_gene_info.tsv.gz",
+            "sha256": "f93ed5707479af4072d26a324b9193a348d403878d93823c9cbf933a59d6261c"  
         },
         "transcript": {
-            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.transcript.fa.gz",
+            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.v41.transcript.fa.gz",
             "sha256": "172d04be1deaf2fd203c2d9063b2e09b33e3036dd2f169d57d996a6e8448fe94"  
         }, 
     },
@@ -26,6 +26,7 @@ REFERENCE_DATA = {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/refseq_38.transcript.fa.gz",
             "sha256": "..."
         },
+    },
     "pig_110":{
         "X_matrix": {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/pig_110.X_matrix.RData.gz",
@@ -34,12 +35,10 @@ REFERENCE_DATA = {
         "transcript": {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/pig_110.transcript.fa.gz",
             "sha256": "09379a4f747525eea821a1f56e79a6dacfe4a4a2f3f0c9d43e3fa1c8a37ed53d"  
-        }, 
-        
-    }
-    },
-    # 可添加更多版本
+        },         
+        }
 }
+    # 可添加更多版本
 
 
 

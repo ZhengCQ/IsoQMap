@@ -344,12 +344,14 @@ def run_isoquan(infile, ref, config, outdir, xaem_dir, xaem_index, x_matrix, for
         df_status_eqclass = df_status.query("name == 'eqclass'")
         success_lst = df_status_eqclass.query("status == 'Success'")['shell'].to_list()
         logger.info(f'{len(success_lst)} eqclass finished, Starting matrix')
-        shell_lst = df_status[df_status['name'] == 'matrix']['shell'].to_list()
-        df_status = single_job_run(shell_lst[0], df_status, status_file)
     else:
         error_lst = df_status_eqclass.query("status != 'Error'")['shell'].to_list()
         logger.error(f'There are {len(error_lst)} errors, please check {status_file}.Error carefully!')
-
+    
+    if not is_success(df_status, 'matrix'):
+        shell_lst = df_status[df_status['name'] == 'matrix']['shell'].to_list()
+        df_status = single_job_run(shell_lst[0], df_status, status_file)
+        
     if is_success(df_status, 'matrix'):
         logger.info('All jobs finished successfully')
     else:

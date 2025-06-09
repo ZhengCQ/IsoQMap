@@ -10,6 +10,9 @@ from ..tools import pathfinder,common
 import logging
 import subprocess
 
+from ..tools.downloader import download_reference, decompress_zip,download_file_with_retry
+
+
 
 # Configure logging
 FORMAT = '%(asctime)s %(message)s'
@@ -56,11 +59,16 @@ def check_input_files(isoform_file, cov_file, refdb):
     
     ## annotation file
     gene_info_fi = binfinder.find(f'./resources/ref/{refdb}/transcript_gene_info.tsv.gz')
-    common.check_file_exists(
+    
+    if not common.check_file_exists(
         gene_info_fi,
         file_description=f"Gene annotaion file {gene_info_fi}",
-        logger=logger
-    )
+        logger=logger,
+        exit_on_error=False
+    ):
+        print(f"Transcript file not found or unreadable. Trying to download for {refdb}...")
+        download_reference(refdb, ['geneinfo'])
+    
 
     logger.info(f'Reading annotation file {gene_info_fi}...')
     df_anno = pd.read_csv(gene_info_fi, sep='\t',index_col=0)
@@ -169,11 +177,17 @@ def write_and_export(norm_result, out_prefix, force=False):
 
 def exp2BOD(efile, outpre):
     osca_bin = binfinder('./resources/osca')
-    common.check_file_exists(
+    if not common.check_file_exists(
         osca_bin,
         file_description=f"OSCA in :{osca_bin}",
-        logger=logger
-    )
+
+        logger=logger,
+        exit_on_error=False
+    ):
+        dest = osca_bin + '.zip'
+        download_file_with_retry('https://yanglab.westlake.edu.cn/software/osca/download/osca-0.46.1-linux-x86_64.zip',
+                                 dest)
+        decompress_zip(dest)
 
     cmd = [
         osca_bin,
@@ -248,7 +262,7 @@ def run_preprocess(isoform, covariates, ref, isoform_ratio, prefix, outdir, tpm_
 def preprocess(verbose, isoform, covariates, **kwargs):
     """Isoform quantification"""
     # 设置日志路径
-    log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.isoqtl.preprocess.info.log'
+    log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d")}.isoqtl.preprocess.info.log'
 
     # 初始化日志（自定义的 setup_logger 里完成 format 和 level 设置）
     common.setup_logger(log_file, verbose)

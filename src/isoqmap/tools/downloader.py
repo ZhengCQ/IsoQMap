@@ -17,7 +17,11 @@ REFERENCE_DATA = {
         "transcript": {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.v41.transcript.fa.gz",
             "sha256": "172d04be1deaf2fd203c2d9063b2e09b33e3036dd2f169d57d996a6e8448fe94"  
-        }, 
+        },
+        "geneinfo":{
+            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.v41.transcript_gene_info.tsv.gz",
+            "sha256": "f93ed5707479af4072d26a324b9193a348d403878d93823c9cbf933a59d6261c"
+            } 
     },
     "refseq_38": {
         "X_matrix": {
@@ -56,6 +60,13 @@ def decompress_gz(file_path):
     with gzip.open(file_path, 'rb') as f_in, open(output_path, 'wb') as f_out:
         shutil.copyfileobj(f_in, f_out)
     print(f"✔ Decompressed: {output_path}")
+    
+def decompress_zip(file_path):
+    output_dir = file_path.with_suffix('')  # 移除 .zip 后缀，作为解压目录
+    print(f"Decompressing {file_path} -> {output_dir}")
+    with zipfile.ZipFile(file_path, 'r') as zip_ref:
+        zip_ref.extractall(output_dir)
+    print(f"✔ Decompressed to directory: {output_dir}")
 
 def download_file_with_retry(url, dest_path, retries=3, delay=2):
     for attempt in range(1, retries + 1):

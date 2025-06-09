@@ -4,6 +4,8 @@ from pathlib import Path
 import requests
 import time
 import os
+import gzip
+import shutil
 
 # 定义支持的数据版本及其对应文件和哈希值
 REFERENCE_DATA = {
@@ -36,13 +38,9 @@ REFERENCE_DATA = {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/pig_110.transcript.fa.gz",
             "sha256": "09379a4f747525eea821a1f56e79a6dacfe4a4a2f3f0c9d43e3fa1c8a37ed53d"  
         },         
-        }
+    }
 }
-    # 可添加更多版本
 
-
-
-# 设置本地保存路径
 RESOURCE_ROOT = Path(__file__).resolve().parent.parent / "resources" / "ref"
 
 def sha256sum(file_path):
@@ -52,29 +50,40 @@ def sha256sum(file_path):
             h.update(chunk)
     return h.hexdigest()
 
+def decompress_gz(file_path):
+    output_path = file_path.with_suffix('')
+    print(f"Decompressing {file_path} -> {output_path}")
+    with gzip.open(file_path, 'rb') as f_in, open(output_path, 'wb') as f_out:
+        shutil.copyfileobj(f_in, f_out)
+    print(f"✔ Decompressed: {output_path}")
 
 def download_file_with_retry(url, dest_path, retries=3, delay=2):
     for attempt in range(1, retries + 1):
         try:
             print(f"Attempt {attempt} to download {url}")
-            response = requests.get(url, stream=True, timeout=10)
-            response.raise_for_status()
-
-            with open(dest_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            print(f"Download succeeded. Save in the {dest_path}")
+            with requests.get(url, stream=True, timeout=10) as response:
+                response.raise_for_status()
+                total = int(response.headers.get('content-length', 0))
+                with open(dest_path, 'wb') as f:
+                    downloaded = 0
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            done = int(50 * downloaded / total) if total else 0
+                            print(f"\r[{'█' * done}{'.' * (50 - done)}] {downloaded / total:.2%}", end='')
+            print(f"\n✔ Download succeeded: {dest_path}")
             return True
         except Exception as e:
-            print(f"Download failed: {e}")
+            print(f"\n✘ Download failed: {e}")
             if os.path.exists(dest_path):
                 os.remove(dest_path)
             if attempt < retries:
+                print(f"Retrying after {delay} seconds...")
                 time.sleep(delay)
             else:
-                print("Exceeded retry limit.")
+                print("✘ Exceeded retry limit.")
                 return False
-
 
 def download_reference(version='gencode_38', files_requested=['all']):
     if version not in REFERENCE_DATA:
@@ -94,27 +103,33 @@ def download_reference(version='gencode_38', files_requested=['all']):
             print(f"{dest} already exists. Verifying hash...")
             if sha256sum(dest) == meta["sha256"]:
                 print(f"✔ Hash OK for {filename}, skipping download.")
-                continue
             else:
                 print(f"✘ Hash mismatch for {filename}, re-downloading...")
+                dest.unlink()
+        if not dest.exists():
+            success = download_file_with_retry(meta["url"], dest)
+            if not success:
+                raise RuntimeError(f"Failed to download: {filename}")
 
-        download_file_with_retry(meta["url"], dest)
         print(f"Verifying downloaded file {filename}...")
         if sha256sum(dest) != meta["sha256"]:
+            print(f"✘ Hash mismatch after download. Deleting file.")
+            dest.unlink()
             raise ValueError(f"Hash mismatch for {filename} after download.")
 
         print(f"✔ Downloaded and verified: {dest}")
 
-
-
+        # 自动解压X_matrix文件（如果是.gz结尾）
+        if name == "X_matrix" and dest.suffix == ".gz":
+            decompress_gz(dest)
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Download reference resources")
     parser.add_argument("version", choices=REFERENCE_DATA.keys(), help="Reference version to download")
+    parser.add_argument("--files", default="all", help="Comma-separated file types to download (default: all)")
     args = parser.parse_args()
     files_requested = args.files.split(',') if args.files else ['all']
 
     download_reference(args.version, files_requested)
-

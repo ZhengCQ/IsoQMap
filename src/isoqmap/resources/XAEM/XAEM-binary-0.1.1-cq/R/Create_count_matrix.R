@@ -36,8 +36,14 @@ setwd(paste(workdir,"/Ycount",sep=""))
 flist = list.files(workdir,pattern="eqClass.txt",recursive=TRUE,full.names = TRUE)
 tx_length = flist[1]
 #initialization for parallel computing
-library(foreach)
-library(doParallel)
+required_packages <- c("foreach", "doParallel")
+
+for (pkg in required_packages) {
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg, repos = "http://cran.us.r-project.org")
+    library(pkg, character.only = TRUE)
+  }
+}
 registerDoParallel(cores=core)
 
 res=foreach(id = 1:length(flist),.combine=c) %dopar% {

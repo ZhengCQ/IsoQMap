@@ -59,8 +59,16 @@ setwd(workdir)
 load(design.matrix)
 load("Ycount.RData")
 #set parallel
-library(foreach)
-library(doParallel)
+
+required_packages <- c("foreach", "doParallel")
+
+for (pkg in required_packages) {
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg, repos = "http://cran.us.r-project.org")
+    library(pkg, character.only = TRUE)
+  }
+}
+
 ncores = detectCores()
 nc = min(ncores,core)     # use 8 or 16 as needed!!
 cl <- makePSOCKcluster(nc)   #

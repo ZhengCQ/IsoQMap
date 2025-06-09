@@ -7,15 +7,12 @@ import configparser
 import subprocess
 import threading
 import queue
-import shutil
-import sys
 from ..tools import pathfinder, common
-
-#from ..tools.pathfinder import PathFinder
-#from ..tools.common import check_file_exists
-
+from ..tools.downloader import download_reference
 import pandas as pd
 import click
+
+
 
 binfinder = pathfinder.BinPathFinder('isoqmap')
 
@@ -26,16 +23,16 @@ class JobStatus(object):
         self.run()
 
     def run(self):
-        logger.warning(f"Running: {self.sh_nm}")
+        logger.info(f"Running: {self.sh_nm}")
         res = subprocess.run(
             f'bash {self.sh_nm} 1>{self.sh_nm}.stdout 2>{self.sh_nm}.stderr',
             shell=True
         )
         if res.returncode == 0:
-            logger.warning(f"Success: {self.sh_nm}")
+            logger.info(f"Success: {self.sh_nm}")
             self.change_status('Success')
         else:
-            logger.warning(f"Error: Please check {self.sh_nm}.stderr")
+            logger.error(f"Error: Please check {self.sh_nm}.stderr")
             self.change_status('Error')
     
     def change_status(self, status_item):
@@ -87,13 +84,37 @@ def read_sampleinfo(infile):
     df = pd.DataFrame(sample_info, columns=['sample', 'lib', 'fq1', 'fq2'])
     return df
 
-def index_ref(outdir, config, xaem_dir, refdb, step=1):
-    transcript = config.get('xaem', 'transcript_fa') if config.get('xaem', 'transcript_fa') else str(binfinder.find(f'./resources/ref/{refdb}/transcript.fa.gz'))
-    common.check_file_exists(
+
+def ensure_transcript_exists(refdb: str, config, binfinder, logger):
+    # 1. 优先从 config 读取 transcript 路径；否则自动推测默认路径
+    transcript = config.get('xaem', 'transcript_fa') or str(
+        binfinder.find(f'./resources/ref/{refdb}/transcript.fa.gz')
+    )
+
+    # 2. 检查文件是否存在且可读；否则尝试下载
+    if not common.check_file_exists(
         transcript,
         file_description=f"transcript file is {transcript} for {refdb}",
-        logger=logger
-    )
+        logger=logger,
+        exit_on_error=False
+    ):
+        print(f"Transcript file not found or unreadable. Trying to download for {refdb}...")
+        download_reference(refdb, ['transcript'])
+
+        # 3. 再次检查，下载后必须存在
+        if not common.check_file_exists(
+            transcript,
+            file_description=f"transcript file is {transcript} for {refdb}",
+            logger=logger,
+            exit_on_error=True
+        ):
+            raise FileNotFoundError(f"Transcript still not found after download for {refdb}")
+    
+    return transcript
+
+
+def index_ref(outdir, config, xaem_dir, refdb, step=1):
+    transcript = ensure_transcript_exists(refdb, config, binfinder, logger)
     
     cmd = ''
     outfa = f'{outdir}/ref/{os.path.basename(transcript).replace(".gz", "")}'
@@ -147,9 +168,8 @@ def get_eqclass(df, outdir, xaem_dir, TxIndexer_idx, step=2):
     return shell_lst
 
 def count_matrix(outdir, xaem_dir, config, x_matrix, step=3):
-    logger.warning(f'Parameter: x_matrix is {x_matrix}')
+    logger.info(f'Parameter: x_matrix is {x_matrix}')
     resdir = f'{outdir}/results'
-    
     
     cmd = f"Rscript {xaem_dir}/R/Create_count_matrix.R workdir={resdir} core=8 design.matrix={x_matrix}\n"
     cmd += f"""Rscript {xaem_dir}/R/AEM_update_X_beta.R \\
@@ -164,6 +184,35 @@ def count_matrix(outdir, xaem_dir, config, x_matrix, step=3):
     with open(shell_file, 'w') as outf:
         outf.write(cmd)
     return shell_file
+
+
+def ensure_xmatrix_exists(refdb: str, config, binfinder, logger):
+    # 1. 优先从 config 读取 transcript 路径；否则自动推测默认路径
+    xmatrix = config.get('xaem', 'x_matrix') or str(
+        binfinder.find(f'./resources/ref/{refdb}/X_matrix.RData')
+    )
+
+    # 2. 检查文件是否存在且可读；否则尝试下载
+    if not common.check_file_exists(
+        xmatrix,
+        file_description=f"X_matrix file is {xmatrix} for {refdb}",
+        logger=logger,
+        exit_on_error=False
+    ):
+        print(f"X_matrix file not found or unreadable. Trying to download for {refdb}...")
+        download_reference(refdb, ['X_matrix'])
+
+        # 3. 再次检查，下载后必须存在
+        if not common.check_file_exists(
+            xmatrix,
+            file_description=f"X_matrix file is {xmatrix} for {refdb}",
+            logger=logger,
+            exit_on_error=True
+        ):
+            raise FileNotFoundError(f"X_matrix still not found after download for {refdb}")
+    
+    return xmatrix
+    
 
 def get_all_shells(outdir, df_sample, config, xaem_dir, refdb, xaem_index=None, x_matrix=None):
     shell_info = []
@@ -181,16 +230,9 @@ def get_all_shells(outdir, df_sample, config, xaem_dir, refdb, xaem_index=None, 
     shell_info.extend([[i, step_n, 'eqclass'] for i in eqclass_shells])
     step_n += 1
 
-    # Count matrix and update beta
-    if not x_matrix:
-        x_matrix = config.get('xaem', 'x_matrix') if config.get('xaem', 'x_matrix') else binfinder.find(f'./resources/ref/{refdb}/X_matrix.RData')
+    x_matrix =  ensure_xmatrix_exists(refdb, config, binfinder, logger)
     
-    common.check_file_exists(
-        x_matrix,
-        file_description=f"transcript file is {x_matrix} for {refdb}",
-        logger=logger
-    )
-    
+
     cmd = count_matrix(outdir, xaem_dir, config, x_matrix, step=step_n)
     shell_info.append([cmd, step_n, 'matrix'])
 
@@ -223,20 +265,16 @@ def run_isoquan(infile, ref, config, outdir, xaem_dir, xaem_index, x_matrix, for
     cfg = configparser.ConfigParser()
     if config:
         cfg.read(config, encoding="utf-8")
-    else:
-        
-        print(binfinder.find(f'./config.ini'))
-        
+    else:        
         cfg.read(binfinder.find(f'./config.ini'), encoding="utf-8")
 
     # Set XAEM directory
     if not xaem_dir:
         xaem_dir = cfg.get('xaem', 'xaem_dir') if cfg.get('xaem', 'xaem_dir') else binfinder.find(f'./resources/XAEM/XAEM-binary-0.1.1-cq')
-    logger.warning(f'Parameter: xaem_dir is {xaem_dir}')
+    logger.info(f'Parameter: xaem_dir is {xaem_dir}')
     if not xaem_dir.exists():
         raise FileNotFoundError(f"XAEM binary not found at {xaem_dir}")
     
-
 
     # Create output directories
     outdir = os.path.abspath(outdir)
@@ -252,7 +290,7 @@ def run_isoquan(infile, ref, config, outdir, xaem_dir, xaem_index, x_matrix, for
     # Get all shell scripts
     status_file = f'{outdir}/shell/JOB.Status'
     if not os.path.exists(status_file) or force:
-        logger.warning('Generating all jobs')
+        logger.info('Generating all jobs')
         status_file = get_all_shells(
             outdir, df_sample, cfg, xaem_dir, ref, 
             xaem_index=xaem_index, x_matrix=x_matrix
@@ -263,7 +301,7 @@ def run_isoquan(infile, ref, config, outdir, xaem_dir, xaem_index, x_matrix, for
     # Load job status
     df_status = pd.read_csv(status_file, sep='|')
     status_dict = df_status.groupby('status').size().to_dict()
-    logger.warning(f'There are {df_status.shape[0]} jobs, {status_dict}')
+    logger.info(f'There are {df_status.shape[0]} jobs, {status_dict}')
 
     # Step 1: Index reference (if needed)
     if df_status[df_status['name'] == 'index'].shape[0] == 1:
@@ -272,9 +310,9 @@ def run_isoquan(infile, ref, config, outdir, xaem_dir, xaem_index, x_matrix, for
             df_status = single_job_run(shell_lst[0], df_status, status_file)
 
     if is_success(df_status, 'index'):
-        logger.warning('Index reference finished, Starting eqclass')
+        logger.info('Index reference finished, Starting eqclass')
     else:
-        logger.warning(f'Index Error, please check {shell_lst[0]}.stderr')
+        logger.error(f'Index Error, please check {shell_lst[0]}.stderr')
 
     # Step 2: Process equivalence classes
     thread_n = int(cfg.getint('xaem', 'eqclass_cpu') / 2)
@@ -305,17 +343,17 @@ def run_isoquan(infile, ref, config, outdir, xaem_dir, xaem_index, x_matrix, for
     if is_success(df_status, 'eqclass'):
         df_status_eqclass = df_status.query("name == 'eqclass'")
         success_lst = df_status_eqclass.query("status == 'Success'")['shell'].to_list()
-        logger.warning(f'{len(success_lst)} eqclass finished, Starting matrix')
+        logger.info(f'{len(success_lst)} eqclass finished, Starting matrix')
         shell_lst = df_status[df_status['name'] == 'matrix']['shell'].to_list()
         df_status = single_job_run(shell_lst[0], df_status, status_file)
     else:
         error_lst = df_status_eqclass.query("status != 'Error'")['shell'].to_list()
-        logger.warning(f'There are {len(error_lst)} errors, please check {status_file}.Error carefully!')
+        logger.error(f'There are {len(error_lst)} errors, please check {status_file}.Error carefully!')
 
     if is_success(df_status, 'matrix'):
-        logger.warning('All jobs finished successfully')
+        logger.info('All jobs finished successfully')
     else:
-        logger.warning(f'Matrix not finished. Please check {shell_lst[0]} carefully!')
+        logger.error(f'Matrix not finished. Please check {shell_lst[0]} carefully!')
 
 
 # 配置日志（保持不变）

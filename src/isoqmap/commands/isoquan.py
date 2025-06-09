@@ -353,7 +353,7 @@ def run_isoquan(infile, ref, config, outdir, xaem_dir, xaem_index, x_matrix, for
         df_status = single_job_run(shell_lst[0], df_status, status_file)
         
     if is_success(df_status, 'matrix'):
-        logger.info('All jobs finished successfully')
+        logger.info('Matrix finished. All jobs finished successfully')
     else:
         logger.error(f'Matrix not finished. Please check {shell_lst[0]} carefully!')
 

@@ -58,8 +58,8 @@ def check_input_files(isoform_file, cov_file, refdb):
 
     
     ## annotation file
-    gene_info_fi = binfinder.find(f'./resources/ref/{refdb}/transcript_gene_info.tsv.gz')
-    
+    gene_info_fi = str(binfinder.find(f'./resources/ref/{refdb}/transcript_gene_info.tsv.gz'))    
+        
     if not common.check_file_exists(
         gene_info_fi,
         file_description=f"Gene annotaion file {gene_info_fi}",
@@ -176,7 +176,7 @@ def write_and_export(norm_result, out_prefix, force=False):
     
 
 def exp2BOD(efile, outpre):
-    osca_bin = binfinder('./resources/osca')
+    osca_bin = str(binfinder('./resources/osca'))
     if not common.check_file_exists(
         osca_bin,
         file_description=f"OSCA in :{osca_bin}",

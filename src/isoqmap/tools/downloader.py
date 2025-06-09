@@ -6,27 +6,34 @@ import time
 import os
 import gzip
 import shutil
+import zipfile
+
 
 # 定义支持的数据版本及其对应文件和哈希值
 REFERENCE_DATA = {
     "gencode_38": {
         "X_matrix": {
-            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.v41.transcript_gene_info.tsv.gz",
-            "sha256": "f93ed5707479af4072d26a324b9193a348d403878d93823c9cbf933a59d6261c"  
+            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.v41.X_matrix.RData.gz",
+            "sha256": "f088e4f29e9d582fca4e6e4b46a7e08a8358d89a3661c910bbe73c44a80e52d0",
+            "filename": "X_matrix.RData.gz"
         },
         "transcript": {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.v41.transcript.fa.gz",
-            "sha256": "172d04be1deaf2fd203c2d9063b2e09b33e3036dd2f169d57d996a6e8448fe94"  
+            "sha256": "172d04be1deaf2fd203c2d9063b2e09b33e3036dd2f169d57d996a6e8448fe94",
+            "filename": "transcript.fa.gz"  
         },
         "geneinfo":{
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.v41.transcript_gene_info.tsv.gz",
-            "sha256": "f93ed5707479af4072d26a324b9193a348d403878d93823c9cbf933a59d6261c"
+            "sha256": "f93ed5707479af4072d26a324b9193a348d403878d93823c9cbf933a59d6261c",
+            "filename": "transcript_gene_info.tsv.gz"
             } 
     },
     "refseq_38": {
         "X_matrix": {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/refseq_38.110.X_matrix.RData",
-            "sha256": "9c758d2177065e0d8ae4fc8b5d6bcb3d45e7fe8f9a0151669a1eee230f2992d1"
+            "sha256": "9c758d2177065e0d8ae4fc8b5d6bcb3d45e7fe8f9a0151669a1eee230f2992d1",
+            "filename": "X_matrix.RData.gz"
+
         },
         "transcript": {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/refseq_38.transcript.fa.gz",
@@ -71,30 +78,40 @@ def decompress_zip(file_path):
 def download_file_with_retry(url, dest_path, retries=3, delay=2):
     for attempt in range(1, retries + 1):
         try:
-            print(f"Attempt {attempt} to download {url}")
-            with requests.get(url, stream=True, timeout=10) as response:
-                response.raise_for_status()
-                total = int(response.headers.get('content-length', 0))
-                with open(dest_path, 'wb') as f:
-                    downloaded = 0
+            # 1. 检查本地是否已有部分内容
+            resume_byte_pos = os.path.getsize(dest_path) if os.path.exists(dest_path) else 0
+
+            headers = {"Range": f"bytes={resume_byte_pos}-"} if resume_byte_pos > 0 else {}
+            print(f"Attempt {attempt} to download {url} (resuming from {resume_byte_pos} bytes)")
+
+            with requests.get(url, headers=headers, stream=True, timeout=10) as response:
+                if response.status_code not in [200, 206]:
+                    raise Exception(f"Unexpected status code: {response.status_code}")
+                
+                total = int(response.headers.get('content-length', 0)) + resume_byte_pos
+                downloaded = resume_byte_pos
+
+                mode = 'ab' if resume_byte_pos > 0 else 'wb'
+                with open(dest_path, mode) as f:
                     for chunk in response.iter_content(chunk_size=8192):
                         if chunk:
                             f.write(chunk)
                             downloaded += len(chunk)
                             done = int(50 * downloaded / total) if total else 0
                             print(f"\r[{'█' * done}{'.' * (50 - done)}] {downloaded / total:.2%}", end='')
+
             print(f"\n✔ Download succeeded: {dest_path}")
             return True
+
         except Exception as e:
             print(f"\n✘ Download failed: {e}")
-            if os.path.exists(dest_path):
-                os.remove(dest_path)
             if attempt < retries:
                 print(f"Retrying after {delay} seconds...")
                 time.sleep(delay)
             else:
                 print("✘ Exceeded retry limit.")
                 return False
+
 
 def download_reference(version='gencode_38', files_requested=['all']):
     if version not in REFERENCE_DATA:
@@ -107,7 +124,7 @@ def download_reference(version='gencode_38', files_requested=['all']):
         if 'all' not in files_requested and name not in files_requested:
             continue
 
-        filename = meta["url"].split("/")[-1].replace(version + '.', '')
+        filename = meta["filename"]
         dest = version_dir / filename
 
         if dest.exists():

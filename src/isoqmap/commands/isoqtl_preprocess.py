@@ -66,12 +66,17 @@ def check_input_files(isoform_file, cov_file, refdb):
         logger=logger,
         exit_on_error=False
     ):
-        print(f"Transcript file not found or unreadable. Trying to download for {refdb}...")
+        print(f"Gene annotaion file not found or unreadable. Trying to download for {refdb}...")
         download_reference(refdb, ['geneinfo'])
     
+        gene_info_fi = str(binfinder.find(f'./resources/ref/{refdb}/transcript_gene_info.tsv.gz'))    
+ 
 
     logger.info(f'Reading annotation file {gene_info_fi}...')
-    df_anno = pd.read_csv(gene_info_fi, sep='\t',index_col=0)
+    try:
+        df_anno = pd.read_csv(gene_info_fi, sep='\t',index_col=0)
+    except:
+        logging.ERROR(f"Error for eading annotation file {gene_info_fi}")
 
     common_transcript = df_exp.index.intersection(df_anno.index)
     logger.warning(f'{len(common_transcript)} out of {df_exp.shape[0]} transcript matched. Filtering unmatched trascripts.')
@@ -124,22 +129,54 @@ class CallNorm(object):
         ratio = df.iloc[:, 1:] / df.groupby('gene_id')[df.columns[1:]].transform('sum')
         return self.norm(ratio)
 
-    def lm_covariates(self, exp_mtx, covariates, phenos=None, covs=None):
+    # def lm_covariates(self, exp_mtx, covariates, phenos=None, covs=None):
+    #     phenos = phenos or list(exp_mtx.columns)
+    #     covs = covs or list(covariates.columns)
+
+    #     logger.info(f'Expression samples: {exp_mtx.shape[0]} | Covariate samples: {covariates.shape[0]}')
+
+    #     exp_mtx = exp_mtx.merge(covariates, left_index=True, right_index=True)
+    #     #logger.info(f'Merged samples: {exp_mtx.shape[0]}')
+    #     logger.info(f'Starting pre adjust ...')
+        
+        
+    #     resid_infos = [
+    #         sm.OLS(exp_mtx[pheno], sm.add_constant(exp_mtx[covs])).fit().resid
+    #         for pheno in phenos
+    #     ]
+    #     return pd.DataFrame(resid_infos, index=phenos, columns=exp_mtx.index).T
+
+    def lm_covariates(self, exp_mtx, covariates, phenos=None, covs=None, block_size=1000):
         phenos = phenos or list(exp_mtx.columns)
         covs = covs or list(covariates.columns)
 
         logger.info(f'Expression samples: {exp_mtx.shape[0]} | Covariate samples: {covariates.shape[0]}')
-
+        
+        # 合并表达矩阵和协变量
         exp_mtx = exp_mtx.merge(covariates, left_index=True, right_index=True)
-        #logger.info(f'Merged samples: {exp_mtx.shape[0]}')
-        logger.info(f'Starting pre adjust ...')
-        
-        
-        resid_infos = [
-            sm.OLS(exp_mtx[pheno], sm.add_constant(exp_mtx[covs])).fit().resid
-            for pheno in phenos
-        ]
+        logger.info(f'Starting pre-adjust with {len(phenos)} phenotypes, processing in blocks of {block_size} ...')
+
+        # 准备协变量矩阵 X，加截距项
+        X = sm.add_constant(exp_mtx[covs].values)  # shape: (n_samples, n_covs + 1)
+
+        # 初始化列表存放所有残差
+        resid_infos = []
+
+        # 分块处理 phenos
+        for i in range(0, len(phenos), block_size):
+            block_phenos = phenos[i:i + block_size]
+            logger.info(f'Processing block {i // block_size + 1}: phenos {i} to {min(i + block_size, len(phenos))}')
+
+            for pheno in block_phenos:
+                y = exp_mtx[pheno].values  # shape: (n_samples,)
+                beta_hat, *_ = np.linalg.lstsq(X, y, rcond=None)
+                resid = y - X @ beta_hat
+                resid_infos.append(resid)
+
+        # 构建并返回目标格式的 DataFrame（行是样本，列是表型）
         return pd.DataFrame(resid_infos, index=phenos, columns=exp_mtx.index).T
+
+
 
     def main(self):
         if self.df_exp.shape[1] <= 1:
@@ -176,15 +213,14 @@ def write_and_export(norm_result, out_prefix, force=False):
     
 
 def exp2BOD(efile, outpre):
-    osca_bin = str(binfinder('./resources/osca'))
+    osca_bin = str(binfinder.find('./resources/osca'))
     if not common.check_file_exists(
         osca_bin,
         file_description=f"OSCA in :{osca_bin}",
-
         logger=logger,
         exit_on_error=False
     ):
-        dest = osca_bin + '.zip'
+        dest = str(binfinder.find('./resources')) + '/' + 'osca.zip'
         download_file_with_retry('https://yanglab.westlake.edu.cn/software/osca/download/osca-0.46.1-linux-x86_64.zip',
                                  dest)
         decompress_zip(dest)

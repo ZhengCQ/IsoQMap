@@ -173,14 +173,15 @@ def count_matrix(outdir, xaem_dir, config, x_matrix, step=3):
     logger.info(f'Parameter: x_matrix is {x_matrix}')
     resdir = f'{outdir}/results'
     
-    cmd = f"Rscript {xaem_dir}/R/Create_count_matrix.R workdir={resdir} core=8 design.matrix={x_matrix}\n"
+    cmd = f"Rscript {xaem_dir}/R/Create_count_matrix.R workdir={resdir} core=8 design.matrix={x_matrix} \n"
     cmd += f"""Rscript {xaem_dir}/R/AEM_update_X_beta.R \\
         workdir={resdir} \\
         core={config.getint('xaem', 'update_cpu')} \\
         design.matrix={x_matrix} \\
         merge.paralogs={config.getboolean('xaem', 'merge.paralogs')} \\
         isoform.method={config.get('xaem', 'isoform.method')} \\
-        remove.ycount={config.getboolean('xaem', 'remove.ycount')}"""
+        remove.ycount={config.getboolean('xaem', 'remove.ycount')}\n"""
+    cmd += f"""Rscript {binfinder.find(f'./resources/isoform_rdata2exp.R')} {resdir}/XAEM_isoform_expression.RData"""
     
     shell_file = f'{outdir}/shell/Step{step}.matrix_samples.sh'
     with open(shell_file, 'w') as outf:
@@ -384,6 +385,8 @@ def isoquan(verbose, infile, ref, **kwargs):
     """Isoform quantification"""
     # 设置日志路径
     log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d")}.isoquan.info.log'
+    if os.path.exists(log_file):
+        os.system(f'rm {log_file}')
 
     # 初始化日志（自定义的 setup_logger 里完成 format 和 level 设置）
     common.setup_logger(log_file, verbose)

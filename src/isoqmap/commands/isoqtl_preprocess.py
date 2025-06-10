@@ -209,7 +209,7 @@ def write_and_export(norm_result, out_prefix, force=False):
     if os.path.exists(out_bod) and not force:
         logger.warning(f"Output file exists: {out_bod}. Skipping.")
     else:
-        exp2BOD(norm_result, out_prefix)
+        exp2BOD(out_tsv, out_prefix)
     
 
 def exp2BOD(efile, outpre):
@@ -220,10 +220,13 @@ def exp2BOD(efile, outpre):
         logger=logger,
         exit_on_error=False
     ):
-        dest = binfinder.find('./resources') + '/' + 'osca.zip'
+        dest_dir = str(binfinder.find('./resources')) 
         download_file_with_retry('https://yanglab.westlake.edu.cn/software/osca/download/osca-0.46.1-linux-x86_64.zip',
-                                 dest)
-        decompress_zip(dest)
+                                 dest_dir + '/' + 'osca-0.46.1-linux-x86_64.zip')
+        
+        decompress_zip(dest_dir + '/' + 'osca-0.46.1-linux-x86_64.zip')
+        
+        os.system(f'ln -fs {dest_dir}/osca-0.46.1-linux-x86_64/osca {dest_dir}/osca')
 
     cmd = [
         osca_bin,

@@ -69,7 +69,7 @@ def decompress_gz(file_path):
     print(f"✔ Decompressed: {output_path}")
     
 def decompress_zip(file_path):
-    output_dir = Path(file_path).with_suffix('')  # 移除 .zip 后缀，作为解压目录
+    output_dir = Path(file_path).parent
     print(f"Decompressing {file_path} -> {output_dir}")
     with zipfile.ZipFile(file_path, 'r') as zip_ref:
         zip_ref.extractall(output_dir)

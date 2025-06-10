@@ -146,7 +146,7 @@ class CallNorm(object):
     #     ]
     #     return pd.DataFrame(resid_infos, index=phenos, columns=exp_mtx.index).T
 
-    def lm_covariates(self, exp_mtx, covariates, phenos=None, covs=None, block_size=1000):
+    def lm_covariates(self, exp_mtx, covariates, phenos=None, covs=None, block_size=5000):
         phenos = phenos or list(exp_mtx.columns)
         covs = covs or list(covariates.columns)
 
@@ -220,7 +220,7 @@ def exp2BOD(efile, outpre):
         logger=logger,
         exit_on_error=False
     ):
-        dest = str(binfinder.find('./resources')) + '/' + 'osca.zip'
+        dest = binfinder.find('./resources') + '/' + 'osca.zip'
         download_file_with_retry('https://yanglab.westlake.edu.cn/software/osca/download/osca-0.46.1-linux-x86_64.zip',
                                  dest)
         decompress_zip(dest)
@@ -295,6 +295,7 @@ def run_preprocess(isoform, covariates, ref, isoform_ratio, prefix, outdir, tpm_
 @click.option('--outdir', default=None, help='Output directory.')
 @click.option('--tpm-threshold', default=0.1, show_default=True, help='TPM threshold for filtering.')
 @click.option('--sample-threshold-ratio', default=0.2, show_default=True, help='Minimum fraction of samples where isoform must pass TPM threshold.')
+@click.option('--force', is_flag=True, help='Force to cover the exits normed files.')
 def preprocess(verbose, isoform, covariates, **kwargs):
     """Isoform quantification"""
     # 设置日志路径

@@ -209,7 +209,9 @@ def write_and_export(norm_result, out_prefix, force=False):
     if os.path.exists(out_bod) and not force:
         logger.warning(f"Output file exists: {out_bod}. Skipping.")
     else:
+        logger.warning(f"Starting file format to BOD.")
         exp2BOD(out_tsv, out_prefix)
+
     
 
 def exp2BOD(efile, outpre):
@@ -238,7 +240,7 @@ def exp2BOD(efile, outpre):
         '--out', outpre
     ]
 
-    logger.info(f"Running OSCA command: {' '.join(cmd)}")
+    logger.info(f"Running OSCA make-bod command: {' '.join(cmd)}")
 
     try:
         subprocess.run(cmd, check=True)
@@ -246,6 +248,22 @@ def exp2BOD(efile, outpre):
         logger.error(f"OSCA failed with return code {e.returncode}")
         raise RuntimeError("OSCA execution failed") from e
 
+
+def update_opi(opi_file,df_anno,is_gene=False):
+    df_opi = pd.read_csv(opi_file,sep='\t',header=None)
+    df_anno_slim = df_anno[['chromsome','start','gene_id','strand']]
+    df_anno_slim['chromsome'] = df_anno_slim['chromsome'].apply(lambda x:x.replace('chr',''))
+    if is_gene:
+        gene2start = {idx:val['start'].min() for idx,val in df_anno_slim.groupby('gene_id')}
+        df_anno_gene = df_anno_slim.reset_index().drop(['transcript_id'],axis=1).drop_duplicates('gene_id')
+        df_anno_gene['start'] = df_anno_gene['gene_id'].apply(lambda x:gene2start[x])
+        df_anno_gene['probe'] = df_anno_gene['gene_id']
+        df_opi_new = df_opi.merge(df_anno_gene,left_on=1,right_on='probe',how='left')[['chromsome','probe','start','gene_id','strand']]
+    else:
+        df_anno_slim['probe'] = df_anno_slim.index
+        df_opi_new = df_opi.merge(df_anno_slim,left_on=1,right_on='probe',how='left')[['chromsome','probe','start','gene_id','strand']]
+    os.system(f'cp {opi_file} {opi_file}.bak')
+    df_opi_new.to_csv(opi_file,sep='\t',index=False,header=None)
 
 def run_preprocess(isoform, covariates, ref, isoform_ratio, prefix, outdir, tpm_threshold, sample_threshold_ratio, force=False):
     outdir = os.path.abspath(outdir or os.path.dirname(isoform))
@@ -268,7 +286,11 @@ def run_preprocess(isoform, covariates, ref, isoform_ratio, prefix, outdir, tpm_
     res_iso_abund = CallNorm(df_iso, df_cov.T, isratio=False)
     out_prefix_iso_abund = os.path.join(out_bod, f'{prefix}.isoform_abundance')
     logger.info(f'Writing isoform abundance output to: {out_prefix_iso_abund}')
-    write_and_export(res_iso_abund, out_prefix_iso_abund, force=force)
+    write_and_export(res_iso_abund, out_prefix_iso_abund)
+    update_opi(f'{out_prefix_iso_abund}.opi', df_anno)
+    logger.info('Finished isoform abundance normalization and formated to BOD file')
+
+
 
     # Step 4: Isoform splice ratio normalization (conditional)
     if isoform_ratio:
@@ -276,7 +298,10 @@ def run_preprocess(isoform, covariates, ref, isoform_ratio, prefix, outdir, tpm_
         res_iso_ratio = CallNorm(df_iso, df_cov.T, isratio=True)
         out_prefix_iso_ratio = os.path.join(out_bod, f'{prefix}.isoform_splice_ratio')
         logger.info(f'Writing isoform splice ratio output to: {out_prefix_iso_ratio}')
-        write_and_export(res_iso_ratio, out_prefix_iso_ratio, force=force)
+        write_and_export(res_iso_ratio, out_prefix_iso_ratio)
+        update_opi(f'{out_prefix_iso_ratio}.opi', df_anno)
+        logger.info('Finished Isoform splice ratio normalization and formated to BOD file')
+
     else:
         logger.info('Isoform splice ratio normalization not requested. Skipping.')
 
@@ -285,7 +310,10 @@ def run_preprocess(isoform, covariates, ref, isoform_ratio, prefix, outdir, tpm_
     res_gene = CallNorm(df_gene, df_cov.T, isratio=False)
     out_prefix_gene = os.path.join(out_bod, f'{prefix}.gene_abundance')
     logger.info(f'Writing gene abundance output to: {out_prefix_gene}')
-    write_and_export(res_gene, out_prefix_gene, force=force)
+    write_and_export(res_gene, out_prefix_gene)
+    update_opi(f'{out_prefix_gene}.opi', df_anno,is_gene=True)
+    logger.info('Finished gene abundance normalization and formated to BOD file')
+
     logger.info('All normalization steps completed.')
          
     
@@ -296,10 +324,9 @@ def run_preprocess(isoform, covariates, ref, isoform_ratio, prefix, outdir, tpm_
 @click.option('--ref', default='gencode_38', type=click.Choice(['refseq_38', 'gencode_38']), help='Reference database.')
 @click.option('--isoform-ratio', is_flag=True, help='Calculate isoform expression splice ratio.')
 @click.option('--prefix', default='IsoQ', help='Output file prefix.')
-@click.option('--outdir', default=None, help='Output directory.')
+@click.option('--outdir', default='./workdir', help='Output directory.')
 @click.option('--tpm-threshold', default=0.1, show_default=True, help='TPM threshold for filtering.')
 @click.option('--sample-threshold-ratio', default=0.2, show_default=True, help='Minimum fraction of samples where isoform must pass TPM threshold.')
-@click.option('--force', is_flag=True, help='Force to cover the exits normed files.')
 def preprocess(verbose, isoform, covariates, **kwargs):
     """Isoform quantification"""
     # 设置日志路径

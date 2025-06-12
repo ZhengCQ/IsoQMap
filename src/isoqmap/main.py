@@ -2,6 +2,10 @@ import click
 from isoqmap.commands.isoquan import isoquan
 from isoqmap.commands.download import download
 from isoqmap.commands.isoqtl_preprocess import preprocess as qtlpreprocess
+from isoqmap.commands.isoqtl_run import runisoqtl
+from isoqmap.commands.isoqtl_format import qtlformat
+
+
 
 @click.group()
 def cli():
@@ -11,6 +15,8 @@ def cli():
 cli.add_command(isoquan)
 cli.add_command(download)
 cli.add_command(qtlpreprocess)
+cli.add_command(runisoqtl)
+cli.add_command(qtlformat)
 
 if __name__ == '__main__':
     cli()

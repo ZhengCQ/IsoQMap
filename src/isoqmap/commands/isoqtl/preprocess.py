@@ -6,11 +6,11 @@ import numpy as np
 import datetime
 import scipy.stats as stats
 import statsmodels.api as sm
-from ..tools import pathfinder,common
+from ...tools import pathfinder,common
 import logging
 import subprocess
 
-from ..tools.downloader import download_reference, decompress_zip,download_file_with_retry
+from ...tools.downloader import download_reference, decompress_zip,download_file_with_retry
 
 
 
@@ -328,7 +328,8 @@ def run_preprocess(isoform, covariates, ref, isoform_ratio, prefix, outdir, tpm_
 @click.option('--tpm-threshold', default=0.1, show_default=True, help='TPM threshold for filtering.')
 @click.option('--sample-threshold-ratio', default=0.2, show_default=True, help='Minimum fraction of samples where isoform must pass TPM threshold.')
 def preprocess(verbose, isoform, covariates, **kwargs):
-    """Isoform quantification"""
+    """Preprocess input data for IsoQTL"""
+
     # 设置日志路径
     log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d")}.isoqtl.preprocess.info.log'
 

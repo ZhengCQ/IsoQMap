@@ -1,22 +1,17 @@
 import click
-from isoqmap.commands.isoquan import isoquan
 from isoqmap.commands.download import download
-from isoqmap.commands.isoqtl_preprocess import preprocess as qtlpreprocess
-from isoqmap.commands.isoqtl_run import runisoqtl
-from isoqmap.commands.isoqtl_format import qtlformat
-
-
+from isoqmap.commands.isoquan import isoquan
+from isoqmap.commands.isoqtl import isoqtl
 
 @click.group()
 def cli():
     """Isoform Quantification and QTL mapping"""
-    pass  # 不在这里全局检查依赖
+    pass
 
 cli.add_command(isoquan)
 cli.add_command(download)
-cli.add_command(qtlpreprocess)
-cli.add_command(runisoqtl)
-cli.add_command(qtlformat)
+cli.add_command(isoqtl)
 
 if __name__ == '__main__':
     cli()
+

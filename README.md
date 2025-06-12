@@ -3,7 +3,7 @@ This project describes an automated pipeline to quantify isoform expressions for
 
 ## Prerequisites
 ```
-R (recommended version >= 3.SS5.1)
+R (recommended version >= 3.5.1)
 Python (recommended version >= 3.7)
 ```
 
@@ -18,21 +18,13 @@ cd IsoQMap
 pip install -e ./
 ```
 
-### install requirments.txt
-In R, install the R dependencies via:
-```
-install.packages("foreach")
-install.packages("doParallel")
-```
-In python 
-
 ## conda
 ```
 conda create -n IsoQMap python=3.8
 conda activate IsoQMap
+conda install -c conda-forge r-base r-essentials
+conda install -c conda-forge r-foreach r-doparallel
 ``` 
-
-
 
 ## qucik start
 ```

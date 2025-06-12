@@ -3,7 +3,7 @@ import subprocess
 import logging
 from pathlib import Path
 import click
-from ..tools import pathfinder,common
+from ...tools import pathfinder,common
 
 binfinder = pathfinder.BinPathFinder('isomap')
 
@@ -121,7 +121,8 @@ def batch_generate_scripts(prefix, mode, befile, outdir, bed_file, osca_path, bf
 @click.option('--prefix', default='osca_qtl_job', help='Output file prefix')
 @click.option('--backend', default='shell', type=click.Choice(['slurm', 'sge', 'shell']), help='Execution backend')
 @click.option('--run', is_flag=True, help='Whether to run directly in Python')
-def runisoqtl(osca, bfile, befile, mode, outdir, prefix, backend, run):
+def call(osca, bfile, befile, mode, outdir, prefix, backend, run):
+    """Run IsoQTL association analysis"""
     from pathlib import Path
     os.makedirs(outdir,exist_ok=True)
     # 自动寻找 OSCA 二进制文件

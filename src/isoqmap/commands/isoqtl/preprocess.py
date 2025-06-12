@@ -6,11 +6,11 @@ import numpy as np
 import datetime
 import scipy.stats as stats
 import statsmodels.api as sm
-from ..tools import pathfinder,common
+from ...tools import pathfinder,common
 import logging
 import subprocess
 
-from ..tools.downloader import download_reference, decompress_zip,download_file_with_retry
+from ...tools.downloader import download_reference, decompress_zip,download_file_with_retry
 
 
 
@@ -96,12 +96,12 @@ def filtered_isoform(df_exp, df_anno, tpm_threshold=0.1, sample_threshold_ratio=
     df_exp = df_anno[['gene_id']].merge(df_exp, left_index=True, right_index=True)
 
     df_gene_exp = df_exp.groupby('gene_id').sum()
-    logger.info(f'{df_gene_exp.shape[0]} genes, {df_gene_exp.shape[1]} samples retained')
+    logger.info(f'{df_gene_exp.shape[0]} genes, {df_gene_exp.shape[1]} samples retained for eQTL')
 
     multi_iso_genes = df_exp['gene_id'].value_counts()
     multi_iso_genes = multi_iso_genes[multi_iso_genes > 1].index
     df_iso_exp = df_exp[df_exp['gene_id'].isin(multi_iso_genes)]
-    logger.info(f'{df_iso_exp.shape[0]} isoforms retained (multi-isoform genes only)')
+    logger.info(f'{df_iso_exp.shape[0]} isoforms retained (multi-isoform genes only) for isoQTL')
 
     return df_gene_exp, df_iso_exp
 
@@ -227,9 +227,10 @@ def exp2BOD(efile, outpre):
                                  dest_dir + '/' + 'osca-0.46.1-linux-x86_64.zip')
         
         decompress_zip(dest_dir + '/' + 'osca-0.46.1-linux-x86_64.zip')
-        
-        os.system(f'ln -fs {dest_dir}/osca-0.46.1-linux-x86_64/osca {dest_dir}/osca')
-
+    
+        osca_bin = f'{dest_dir}/osca'   
+        os.system(f'chmod 755 {dest_dir}/osca-0.46.1-linux-x86_64/osca && ln -fs {dest_dir}/osca-0.46.1-linux-x86_64/osca {dest_dir}/osca')
+    
     cmd = [
         osca_bin,
         '--efile', efile,
@@ -283,7 +284,7 @@ def run_preprocess(isoform, covariates, ref, isoform_ratio, prefix, outdir, tpm_
     df_gene, df_iso = filtered_isoform(df_exp, df_anno, tpm_threshold, sample_threshold_ratio)
 
     # Step 3: Isoform abundance normalization
-    logger.info('Performing isoform abundance normalization...')
+    logger.info('Performing isoform abundance normalization...!!!')
     res_iso_abund = CallNorm(df_iso, df_cov.T, isratio=False)
     out_prefix_iso_abund = os.path.join(out_bod, f'{prefix}.isoform_abundance')
     logger.info(f'Writing isoform abundance output to: {out_prefix_iso_abund}')
@@ -329,7 +330,8 @@ def run_preprocess(isoform, covariates, ref, isoform_ratio, prefix, outdir, tpm_
 @click.option('--tpm-threshold', default=0.1, show_default=True, help='TPM threshold for filtering.')
 @click.option('--sample-threshold-ratio', default=0.2, show_default=True, help='Minimum fraction of samples where isoform must pass TPM threshold.')
 def preprocess(verbose, isoform, covariates, **kwargs):
-    """Isoform quantification"""
+    """Preprocess input data for IsoQTL"""
+
     # 设置日志路径
     log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d")}.isoqtl.preprocess.info.log'
 

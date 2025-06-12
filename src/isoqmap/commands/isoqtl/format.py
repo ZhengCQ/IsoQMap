@@ -11,8 +11,8 @@ import subprocess
 import sys
 import os
 
-from ..tools import pathfinder, common
-from ..tools.downloader import download_reference
+from ...tools import pathfinder, common
+from ...tools.downloader import download_reference
 
 # Initialize path finder
 binfinder = pathfinder.BinPathFinder('isomap')
@@ -391,7 +391,7 @@ def run_format(verbose, inpre, mode, ref, id2rs_file, id2rs_idname, id2rs_rsname
         logger.error(f"Error in run_format: {str(e)}")
         raise
 
-@click.command()
+@click.command(name="format")
 @click.option('--verbose', is_flag=True, help='Enable verbose output')
 @click.option('--inpre', required=True, help='Input file prefix')
 @click.option('--mode', required=True, type=click.Choice(['sqtl', 'eqtl']), 
@@ -407,8 +407,9 @@ def run_format(verbose, inpre, mode, ref, id2rs_file, id2rs_idname, id2rs_rsname
               help='Column name for rsID in id2rs file')
 @click.option('--processes', default=20, type=int,
               help='Number of parallel processes to use')
+
 def qtlformat(verbose, inpre, mode, **kwargs):
-    """Process QTL (quantitative trait locus) data for isoform quantification"""
+    """Format QTL results for downstream usage"""
     # Set up logging
     log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d")}.isoqtl.format.info.log'
     log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d")}.isoqtl.preprocess.info.log'

@@ -247,22 +247,24 @@ def exp2BOD(efile, outpre):
         logger.error(f"OSCA failed with return code {e.returncode}")
         raise RuntimeError("OSCA execution failed") from e
 
-
-def update_opi(opi_file,df_anno,is_gene=False):
-    df_opi = pd.read_csv(opi_file,sep='\t',header=None)
-    df_anno_slim = df_anno[['chromsome','start','gene_id','strand']]
-    df_anno_slim['chromsome'] = df_anno_slim['chromsome'].apply(lambda x:x.replace('chr',''))
+def update_opi(opi_file, df_anno, is_gene=False):
+    df_opi = pd.read_csv(opi_file, sep='\t', header=None)
+    df_anno_slim = df_anno[['chromsome', 'start', 'gene_id', 'strand']].copy()  # 显式创建副本
+    df_anno_slim.loc[:, 'chromsome'] = df_anno_slim['chromsome'].apply(lambda x: x.replace('chr', ''))
+    
     if is_gene:
-        gene2start = {idx:val['start'].min() for idx,val in df_anno_slim.groupby('gene_id')}
-        df_anno_gene = df_anno_slim.reset_index().drop(['transcript_id'],axis=1).drop_duplicates('gene_id')
-        df_anno_gene['start'] = df_anno_gene['gene_id'].apply(lambda x:gene2start[x])
-        df_anno_gene['probe'] = df_anno_gene['gene_id']
-        df_opi_new = df_opi.merge(df_anno_gene,left_on=1,right_on='probe',how='left')[['chromsome','probe','start','gene_id','strand']]
+        gene2start = {idx: val['start'].min() for idx, val in df_anno_slim.groupby('gene_id')}
+        df_anno_gene = df_anno_slim.reset_index().drop(['transcript_id'], axis=1).drop_duplicates('gene_id')
+        df_anno_gene.loc[:, 'start'] = df_anno_gene['gene_id'].apply(lambda x: gene2start[x])
+        df_anno_gene.loc[:, 'probe'] = df_anno_gene['gene_id']
+        df_opi_new = df_opi.merge(df_anno_gene, left_on=1, right_on='probe', how='left')[['chromsome', 'probe', 'start', 'gene_id', 'strand']]
     else:
-        df_anno_slim['probe'] = df_anno_slim.index
-        df_opi_new = df_opi.merge(df_anno_slim,left_on=1,right_on='probe',how='left')[['chromsome','probe','start','gene_id','strand']]
+        df_anno_slim.loc[:, 'probe'] = df_anno_slim.index
+        df_opi_new = df_opi.merge(df_anno_slim, left_on=1, right_on='probe', how='left')[['chromsome', 'probe', 'start', 'gene_id', 'strand']]
+    
     os.system(f'cp {opi_file} {opi_file}.bak')
-    df_opi_new.to_csv(opi_file,sep='\t',index=False,header=None)
+    df_opi_new.to_csv(opi_file, sep='\t', index=False, header=None)
+
 
 def run_preprocess(isoform, covariates, ref, isoform_ratio, prefix, outdir, tpm_threshold, sample_threshold_ratio, force=False):
     outdir = os.path.abspath(outdir or os.path.dirname(isoform))

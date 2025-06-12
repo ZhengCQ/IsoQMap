@@ -17,11 +17,6 @@ def run_osca_task(osca_bin, bfile, befile, outdir, prefix, mode, bed=None, task_
     out_prefix = outdir / prefix
 
     for task_id in range(1, task_num + 1):
-        output_file = f"{out_prefix}.ciseQTL.chr1.txt"  # 可根据实际输出修改
-        if not force and Path(output_file).exists():
-            logging.info(f"[Task {task_id}] Output exists: {output_file}, skipping.")
-            continue
-
         cmd = [
             osca_bin,
             f"--{mode}",
@@ -55,15 +50,16 @@ def write_script(filename, content):
 def generate_osca_script(prefix, mode, befile, outdir, bedfile=None, osca_path='osca',
                          bfile='data/WGS/bedfile/snp.filtered.noPar',
                          task_num=10, threads=4, backend='slurm'):
-    cmd = f"""osca="{osca_path}"
-bfile="{bfile}"
-befile="{befile}"
-outdir="{outdir}"
-prefix="{prefix}"
-task_id=$TASK_ID
+    cmd = f"""
+    osca="{osca_path}"
+    bfile="{bfile}"
+    befile="{befile}"
+    outdir="{outdir}"
+    prefix="{prefix}"
+    task_id=$TASK_ID
 
-$osca --{mode} --bfile $bfile --befile $befile --maf 0.01 --call 0.85 \\
---cis-wind 1000 --thread-num {threads} --task-num {task_num} --task-id $task_id"""
+    $osca --{mode} --bfile $bfile --befile $befile --maf 0.01 --call 0.85 \\
+    --cis-wind 1000 --thread-num {threads} --task-num {task_num} --task-id $task_id"""
 
     if mode == "sqtl":
         cmd += " --to-smr"
@@ -99,7 +95,7 @@ $osca --{mode} --bfile $bfile --befile $befile --maf 0.01 --call 0.85 \\
 # 普通 shell 执行脚本，循环运行所有任务
 for task_id in $(seq 1 {task_num}); do
     TASK_ID=$task_id
-    {cmd}
+    {cmd} &
 done
 """
 
@@ -121,21 +117,22 @@ def batch_generate_scripts(prefix, mode, befile, outdir, bed_file, osca_path, bf
 @click.option('--bfile', required=True, help='Prefix for SNP PLINK bfile')
 @click.option('--befile', required=True, help='BOD file (expression)')
 @click.option('--mode', required=True, type=click.Choice(['sqtl', 'eqtl']), help='QTL analysis mode')
-@click.option('--outdir', default='osca_out', help='Output directory')
-@click.option('--prefix', default='osca_job', help='Output file prefix')
+@click.option('--outdir', default='./workdir', help='Output directory')
+@click.option('--prefix', default='osca_qtl_job', help='Output file prefix')
 @click.option('--backend', default='shell', type=click.Choice(['slurm', 'sge', 'shell']), help='Execution backend')
 @click.option('--run', is_flag=True, help='Whether to run directly in Python')
-def main(osca, bfile, befile, mode, outdir, prefix, backend, run):
+def runisoqtl(osca, bfile, befile, mode, outdir, prefix, backend, run):
     from pathlib import Path
-
+    os.makedirs(outdir,exist_ok=True)
     # 自动寻找 OSCA 二进制文件
     if osca is None:
-        osca = binfinder('./resources/osca')
+        osca = binfinder.find('./resources/osca')
         if osca is None:
             raise FileNotFoundError("未提供 --osca 参数且 ./resources/osca 下未找到 OSCA 可执行文件")
 
     # bed 文件在 sqtl 模式下才使用
     bed_file = '/share/Apps/iGTEx/ref/gencode_38/anno_gene_info.bed' if mode == 'sqtl' else None
+    prefix = f'{prefix}.{mode}'
 
     if run:
         run_osca_task(osca, bfile, befile, outdir, prefix, mode, bed_file)

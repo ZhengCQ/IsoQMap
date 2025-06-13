@@ -72,7 +72,7 @@ sample2   S0003   S0003_1.fq.gz   S0003_2.fq.gz
 sample2   S0004   S0004_1.fq.gz   S0004_2.fq.gz
 ```
 
-### 🔹 Run XAEM
+### 🔹 Run isoform quanlification
 
 ```bash
 isoqmap isoquan -i /path/to/infastq_lst.tsv

@@ -101,9 +101,9 @@ def format_file(fi):
                         snp = ids
                     else:
                         if ids not in id2rs:
-                            continue
-                        
-                        snp = id2rs[ids]
+                            snp = ids
+                        else:
+                            snp = id2rs[ids]                        
                     
                     if pheno_name_gene not in gene2tss:
                         continue
@@ -246,11 +246,9 @@ def process_gene_data(input_path: str) -> None:
             raise ValueError(f"Missing columns: {missing}")
 
         # Process data
-        if not id2rs:
-            df_gene = df_gene[df_gene['SNP'].isin(id2rs)]
+        if id2rs:
             df_gene['SNP'] = df_gene['SNP'].map(id2rs)
-
-        
+            
         df_gene = df_gene[df_gene['Gene'].isin(gene2tss)]
         df_gene['tss_dis'] = df_gene['Gene'].map(gene2tss) - df_gene['BP']
         

@@ -11,19 +11,12 @@ Python (recommended version >= 3.7)
 
 
 ## Installation
-### git 
+### conda
 ```
-git clone https://github.com/ZhengCQ/IsoQMap.git
-cd IsoQMap
-pip install -e ./
-```
-
-## conda
-```
-conda create -n IsoQMap python=3.8
+conda create -n IsoQMap python=3.8  r-base=4.1.2 r-essentials
 conda activate IsoQMap
-conda install -c conda-forge r-base r-essentials
 conda install -c conda-forge r-foreach r-doparallel
+pip install isoqmap
 ``` 
 
 ## qucik start
@@ -38,7 +31,7 @@ cd /path/to/iGTEx_XAEM/Example
 sh run_example.sh 
 ```
 
-
+## isoqmap
 #### Input files
 In `/path/to/workdir`, create a file `/path/to/workdir/infastq_lst.tsv` listing the FASTQ input files. The file is a tab-delimited text file with 4 columns: `Sample name`, `Source name`, `FASTQ file name for paired-end read 1`, and `FASTQ file name for paired-end read 2`. `Source name` indicates the batch or sequencing library of the sample, so that the same sample may correspond to more than one sources. A standard example, where each sample has only a single batch or multiple batches, is given as `/path/to/isoqmap/Example/infastq_lst.tsv`:
 
@@ -56,7 +49,6 @@ sample2 S0004   S0004_1.fg.gz   S0004_2.fg.gz
 sample3 S0005   S0005_1.fg.gz   S0005_2.fg.gz
 sample3 S0006   S0006_1.fg.gz   S0006_2.fg.gz
 ```
-
 
 
 #### Run XAEM 
@@ -77,6 +69,9 @@ isoqmap isoquan -i /path/to/Tissue1/infastq_lst.tsv
 -c /path/to/Tissue1_config.ini
 ```
 An example of the `config.ini` file can be found in `/path/to/isoqmap/config.ini/`.
+
+
+## isoqtl
 
 ### Prepare for QTL mapping
 

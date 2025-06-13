@@ -322,7 +322,7 @@ def safe_process_gene_data(fi):
         return False
     return True
 
-def run_format(verbose, inpre, mode, ref, id2rs_file, id2rs_idname, id2rs_rsname, processes):
+def run_format(verbose, infile, mode, ref, id2rs_file, id2rs_idname, id2rs_rsname, processes):
     """Main processing function"""
     try:
         # Find gene info file
@@ -342,16 +342,11 @@ def run_format(verbose, inpre, mode, ref, id2rs_file, id2rs_idname, id2rs_rsname
         load_global_data(id2rs_file, gene_info_fi, id2rs_idname, id2rs_rsname)
         
         # Process files based on mode
-        if mode == 'sqtl':
-            # 精确匹配两种后缀的文件
-            files_to_process = []
-            for ext in ['isoform_eQTL_effect.txt', 'isoform_eQTL_effect.txt.gz']:
-                files_to_process.extend(glob.glob(f'{inpre}*sqtl*{ext}'))
-        else:
-            files_to_process = glob.glob(f'{inpre}*eqtl*besd')
+        files_to_process = glob.glob(infile)
+
         
         if not files_to_process:
-            logger.error("No files found to process")
+            logger.error(f"No files matched pattern: {infile}")
             return
         
         logger.info(f"Found {len(files_to_process)} files to process")
@@ -391,7 +386,7 @@ def run_format(verbose, inpre, mode, ref, id2rs_file, id2rs_idname, id2rs_rsname
 
 @click.command(name="format")
 @click.option('--verbose', is_flag=True, help='Enable verbose output')
-@click.option('--inpre', required=True, help='Input file prefix')
+@click.option('--infile', required=True, help='Input osca output file. For eqtl: *besd file (e.g. gene_abudance.eqtl_10_*.besd); For sqtl, *isoform_eQTL_effect.txt (e.g. isoform_splice_ratio.sqtl_10-*.isoform_eQTL_effect.txt)')
 @click.option('--mode', required=True, type=click.Choice(['sqtl', 'eqtl']), 
               help='QTL analysis mode (sQTL or eQTL)')
 @click.option('--id2rs-file', required=False, 
@@ -400,17 +395,16 @@ def run_format(verbose, inpre, mode, ref, id2rs_file, id2rs_idname, id2rs_rsname
               type=click.Choice(['refseq_38', 'gencode_38']), 
               help='Reference database')
 @click.option('--id2rs-idname', default='ID', 
-              help='Column name for variant ID in id2rs file')
+              help='Column name for variant ID in id2rs file, defualt: ID')
 @click.option('--id2rs-rsname', default='rsid', 
-              help='Column name for rsID in id2rs file')
-@click.option('--processes', default=20, type=int,
-              help='Number of parallel processes to use')
+              help='Column name for rsID in id2rs file, defualt: rsid')
+@click.option('--processes', default=10, type=int,
+              help='Number of parallel processes to use, default: 10')
 
-def qtlformat(verbose, inpre, mode, **kwargs):
+def qtlformat(verbose, infile, mode, **kwargs):
     """Format QTL results for downstream usage"""
     # Set up logging
     log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d")}.isoqtl.format.info.log'
-    log_file = f'{datetime.datetime.now().strftime("%Y-%m-%d")}.isoqtl.preprocess.info.log'
 
     common.setup_logger(log_file, verbose)
     
@@ -420,7 +414,7 @@ def qtlformat(verbose, inpre, mode, **kwargs):
     
     # Run main processing
     try:
-        run_format(inpre=inpre, mode=mode, verbose=verbose, **kwargs)
+        run_format(inpre=infile, mode=mode, verbose=verbose, **kwargs)
     except Exception as e:
         logger.error(f"Fatal error: {str(e)}")
         sys.exit(1)

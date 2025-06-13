@@ -4,7 +4,9 @@ import logging
 from pathlib import Path
 import click
 from ...tools import pathfinder,common
+from ...tools.downloader import download_osca
 
+logger = logging.getLogger(__name__)
 binfinder = pathfinder.BinPathFinder('isomap')
 
 
@@ -127,9 +129,14 @@ def call(osca, bfile, befile, mode, outdir, prefix, backend, run):
     os.makedirs(outdir,exist_ok=True)
     # 自动寻找 OSCA 二进制文件
     if osca is None:
-        osca = binfinder.find('./resources/osca')
-        if osca is None:
-            raise FileNotFoundError("未提供 --osca 参数且 ./resources/osca 下未找到 OSCA 可执行文件")
+        osca = str(binfinder.find('./resources/osca'))
+        if not common.check_file_exists(
+            osca,
+            file_description=f"OSCA in :{osca}",
+            logger=logger,
+            exit_on_error=False
+        ):
+            osca = download_osca()
 
     # bed 文件在 sqtl 模式下才使用
     bed_file = '/share/Apps/iGTEx/ref/gencode_38/anno_gene_info.bed' if mode == 'sqtl' else None

@@ -10,7 +10,7 @@ from ...tools import pathfinder,common
 import logging
 import subprocess
 
-from ...tools.downloader import download_reference, decompress_zip,download_file_with_retry
+from ...tools.downloader import download_reference, download_osca
 
 
 
@@ -222,14 +222,7 @@ def exp2BOD(efile, outpre):
         logger=logger,
         exit_on_error=False
     ):
-        dest_dir = str(binfinder.find('./resources')) 
-        download_file_with_retry('https://yanglab.westlake.edu.cn/software/osca/download/osca-0.46.1-linux-x86_64.zip',
-                                 dest_dir + '/' + 'osca-0.46.1-linux-x86_64.zip')
-        
-        decompress_zip(dest_dir + '/' + 'osca-0.46.1-linux-x86_64.zip')
-    
-        osca_bin = f'{dest_dir}/osca'   
-        os.system(f'chmod 755 {dest_dir}/osca-0.46.1-linux-x86_64/osca && ln -fs {dest_dir}/osca-0.46.1-linux-x86_64/osca {dest_dir}/osca')
+        osca_bin = download_osca()
     
     cmd = [
         osca_bin,

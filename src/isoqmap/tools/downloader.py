@@ -151,6 +151,14 @@ def download_reference(version='gencode_38', files_requested=['all']):
         if name == "X_matrix" and dest.suffix == ".gz":
             decompress_gz(dest)
 
+def download_osca():
+    dest_dir = str(Path(__file__).resolve().parent.parent / "resources")
+    download_file_with_retry('https://yanglab.westlake.edu.cn/software/osca/download/osca-0.46.1-linux-x86_64.zip',
+                            dest_dir + '/' + 'osca-0.46.1-linux-x86_64.zip')
+    decompress_zip(dest_dir + '/' + 'osca-0.46.1-linux-x86_64.zip')
+    os.system(f'chmod 755 {dest_dir}/osca-0.46.1-linux-x86_64/osca && ln -fs {dest_dir}/osca-0.46.1-linux-x86_64/osca {dest_dir}/osca')
+    return f'{dest_dir}/osca' 
+
 if __name__ == "__main__":
     import argparse
 

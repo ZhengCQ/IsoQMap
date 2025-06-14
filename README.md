@@ -106,7 +106,7 @@ isoqmap isoquan -i /path/to/infastq_lst.tsv
 ```bash
 isoqmap isoqtl preprocess
 ```
-This includes converting isoform expression to isoform ratio, normalization, preadjust covaries, and preparing input (BOD file) for QTL mapping
+This step involves transforming isoform expression data into isoform ratios, applying normalization, adjusting for covariates, and generating the input BOD file for downstream QTL mapping.
 
 ### Step 2: Run QTL mapping (eQTL / isoQTL / irQTL)
 ```bash

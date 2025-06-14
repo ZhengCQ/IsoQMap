@@ -90,4 +90,10 @@ def setup_logger(log_file, verbose):
 
     return logger
 
+def geneinfo_2bed(gene_info_file):
+    
+    return gene_info_file
+    
+
+
 

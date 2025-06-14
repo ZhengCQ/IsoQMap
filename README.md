@@ -1,9 +1,13 @@
 # IsoQMap
 
+![PyPI](https://img.shields.io/pypi/v/isoqmap)
+![Build](https://img.shields.io/badge/build-passing-brightgreen)
+
+
 **IsoQMap** is an automated pipeline for isoform expression quantification from RNA-seq data and subsequent isoform-level QTL (isoQTL) mapping. It integrates two powerful tools:
 
 - **[XAEM](https://github.com/WenjiangDeng/XAEM)** – a robust method for isoform expression estimation across samples ([paper](https://academic.oup.com/bioinformatics/article/36/3/805/5545974), [website](https://www.meb.ki.se/sites/biostatwiki/xaem)).
-- **[OSCA](https://yanglab.westlake.edu.cn/software/osca/)** – for genetic mapping of isoforms and genes using multi-omics data ([paper:OSCA](https://pubmed.ncbi.nlm.nih.gov/31138268/), [paper:THISTLE](https://www.nature.com/articles/s41588-022-01154-4), [website] https://yanglab.westlake.edu.cn/software/osca/)
+- **[OSCA](https://yanglab.westlake.edu.cn/software/osca/)** – for genetic mapping of isoforms and genes using multi-omics data ([paper:OSCA](https://pubmed.ncbi.nlm.nih.gov/31138268/), [paper:THISTLE](https://www.nature.com/articles/s41588-022-01154-4), [website](https://yanglab.westlake.edu.cn/software/osca/))
 
 ---
 
@@ -16,14 +20,18 @@
 
 ## 🛠️ Installation
 
-### Using `conda`:
-
+### Using `conda` prepare prerequisites (Recommended)
 ```bash
 conda create -n IsoQMap python=3.8 r-base=4.1.2 r-essentials
 conda activate IsoQMap
 conda install -c conda-forge r-foreach r-doparallel
+```
+
+### Quick installation
+```bash
 pip install isoqmap
-(In China MainLand ) pip install isoqmap -i https://pypi.tuna.tsinghua.edu.cn/simple
+# (For China Mainland)
+pip install isoqmap -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ---
@@ -38,7 +46,7 @@ isoqmap --help
 
 ## 📁 Example
 
-A working example is provided in the `Example/` directory:
+A working example command is provided in the `Example/` directory:
 
 ```bash
 cd /path/to/isoqmap/Example
@@ -94,22 +102,25 @@ isoqmap isoquan -i /path/to/infastq_lst.tsv
 
 ## 🧬 Isoform and Gene QTL Mapping (`isoqmap isoqtl`)
 
-### Step 1: Convert isoform expression matrix to BOD file for eQTL, isoQTL and irQTL 
+### Step 1: Preprocess input files for QTL mapping
 ```bash
 isoqmap isoqtl preprocess
 ```
+This includes converting isoform expression to isoform ratio, normalization, preadjust covaries, and preparing input (BOD file) for QTL mapping
 
----
-
-### Step 2: Run eQTL, isoQTL and irQTL Mapping 
-
+### Step 2: Run QTL mapping (eQTL / isoQTL / irQTL)
 ```bash
 isoqmap isoqtl call 
 ```
-### Step 3: Fetch QTL results and Format them for MR and Coloc
+You can specify QTL types and models via CLI options.
+
+
+### Step 3: Format QTL results
 ```bash
 isoqmap isoqtl format 
 ```
+This step formats the results for downstream Mendelian Randomization (MR), Colocalization (coloc), or other integrative analyses.
+
 ---
 
 ## 📬 Feedback

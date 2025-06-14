@@ -3,7 +3,7 @@
 **IsoQMap** is an automated pipeline for isoform expression quantification from RNA-seq data and subsequent isoform-level QTL (isoQTL) mapping. It integrates two powerful tools:
 
 - **[XAEM](https://github.com/WenjiangDeng/XAEM)** – a robust method for isoform expression estimation across samples ([paper](https://academic.oup.com/bioinformatics/article/36/3/805/5545974), [website](https://www.meb.ki.se/sites/biostatwiki/xaem)).
-- **[OSCA](https://yanglab.westlake.edu.cn/software/osca/)** – for genetic mapping of isoforms and genes using multi-omics data.
+- **[OSCA](https://yanglab.westlake.edu.cn/software/osca/)** – for genetic mapping of isoforms and genes using multi-omics data ([paper:OSCA](https://pubmed.ncbi.nlm.nih.gov/31138268/), [paper:THISTLE](https://www.nature.com/articles/s41588-022-01154-4), [website] https://yanglab.westlake.edu.cn/software/osca/)
 
 ---
 
@@ -23,6 +23,7 @@ conda create -n IsoQMap python=3.8 r-base=4.1.2 r-essentials
 conda activate IsoQMap
 conda install -c conda-forge r-foreach r-doparallel
 pip install isoqmap
+(In China MainLand ) pip install isoqmap -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ---
@@ -48,9 +49,9 @@ sh run_example.sh
 
 ## 🔬 Isoform Expression Quantification (`isoqmap isoquan`)
 
-### 🔹 Input Format
+### 🔹 Prepare Input file
 
-Prepare a tab-delimited file (e.g., `infastq_lst.tsv`) with four columns:
+Prepare a tab-delimited file for FASTQ file (e.g., `infastq_lst.tsv`) with four columns:
 
 ```
 SampleName   SourceName   FASTQ_R1   FASTQ_R2
@@ -72,7 +73,7 @@ sample2   S0003   S0003_1.fq.gz   S0003_2.fq.gz
 sample2   S0004   S0004_1.fq.gz   S0004_2.fq.gz
 ```
 
-### 🔹 Run isoform quanlification
+### 🔹 Run isoquan 
 
 ```bash
 isoqmap isoquan -i /path/to/infastq_lst.tsv
@@ -84,7 +85,6 @@ isoqmap isoquan -i /path/to/infastq_lst.tsv
   ```bash
   --ref gencode_38
   ```
-
 - Provide a custom config:
   ```bash
   -c /path/to/config.ini
@@ -94,19 +94,19 @@ isoqmap isoquan -i /path/to/infastq_lst.tsv
 
 ## 🧬 Isoform and Gene QTL Mapping (`isoqmap isoqtl`)
 
-### Step 1: Convert Expression BOD file
+### Step 1: Convert isoform expression matrix to BOD file for eQTL, isoQTL and irQTL 
 ```bash
 isoqmap isoqtl preprocess
 ```
 
 ---
 
-### Step 2: Run QTL Mapping
+### Step 2: Run eQTL, isoQTL and irQTL Mapping 
 
 ```bash
 isoqmap isoqtl call 
 ```
-### Step 3: Format for QTL results for MR and Coloc
+### Step 3: Fetch QTL results and Format them for MR and Coloc
 ```bash
 isoqmap isoqtl format 
 ```

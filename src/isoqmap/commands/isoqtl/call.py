@@ -62,7 +62,7 @@ def run_osca_task(osca, bfile, befile, outdir, prefix, mode, config, bed_file=No
 def write_script(filename: Path, content: str):
     filename = Path(filename)
     filename.write_text(content)
-    print(f"✅ 写入脚本: {filename}")
+    print(f"写入脚本: {filename}")
 
 def generate_osca_script(osca, bfile, befile, outdir, prefix, mode, bed_file, config, backend):
     cfg = resolve_config(config)
@@ -137,8 +137,8 @@ def batch_generate_scripts(osca, bfile, befile, outdir, prefix, mode, bed_file, 
 @click.option('--osca', default=None, help='Path to OSCA binary')
 @click.option('--bfile', required=True, help='Prefix for SNP PLINK bfile')
 @click.option('--befile', required=True, help='BOD file (expression)')
-@click.option('--ref', default='gencode_38', type=click.Choice(['refseq_38', 'gencode_38']), help='Reference database')
 @click.option('--mode', required=True, type=click.Choice(['sqtl', 'eqtl']), help='QTL analysis mode')
+@click.option('--ref', default='gencode_38', type=click.Choice(['refseq_38', 'gencode_38']), help='Reference database')
 @click.option('-c', '--config', type=click.Path(exists=True), help='Configuration file')
 @click.option('--outdir', default='./workdir', help='Output directory')
 @click.option('--prefix', default='osca_qtl_job', help='Output file prefix')

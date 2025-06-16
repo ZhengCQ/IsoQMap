@@ -4,6 +4,7 @@ from .call import run_osca_task
 from .format import run_format
 
 @click.command()
+
 def pipeline():
     """Run the full IsoQTL pipeline: preprocess -> run -> format"""
     click.echo("Running full IsoQTL pipeline...")
@@ -19,3 +20,6 @@ def pipeline():
     run_format()
 
     click.echo("Pipeline completed.")
+
+
+

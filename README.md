@@ -1,89 +1,137 @@
 # IsoQMap
-This project describes an automated pipeline to quantify isoform expressions for the RNA sequencing data and then for isoform QTL mapping. The protocol uses [XAEM](https://github.com/WenjiangDeng/XAEM), a powerful method for isoform expression estimation across multiple samples. You also can find the detailed information about XAEM [website](https://www.meb.ki.se/sites/biostatwiki/xaem) and in the published paper in [Bioinformatics](https://academic.oup.com/bioinformatics/article/36/3/805/5545974).
 
-## Prerequisites
-```
-R (recommended version >= 3.5.1)
-Python (recommended version >= 3.7)
-```
-
-## Development
+![PyPI](https://img.shields.io/pypi/v/isoqmap)
+![Build](https://img.shields.io/badge/build-passing-brightgreen)
 
 
-## Installation
-### conda
-```
-conda create -n IsoQMap python=3.8  r-base=4.1.2 r-essentials
+**IsoQMap** is an automated pipeline for isoform expression quantification from RNA-seq data and subsequent isoform-level QTL (isoQTL) mapping. It integrates two powerful tools:
+
+- **[XAEM](https://github.com/WenjiangDeng/XAEM)** – a robust method for isoform expression estimation across samples ([paper](https://academic.oup.com/bioinformatics/article/36/3/805/5545974), [website](https://www.meb.ki.se/sites/biostatwiki/xaem)).
+- **[OSCA](https://yanglab.westlake.edu.cn/software/osca/)** – for genetic mapping of isoforms and genes using multi-omics data ([paper:OSCA](https://pubmed.ncbi.nlm.nih.gov/31138268/), [paper:THISTLE](https://www.nature.com/articles/s41588-022-01154-4), [website](https://yanglab.westlake.edu.cn/software/osca/))
+
+---
+
+## 📦 Prerequisites
+
+- Python ≥ 3.8
+- R ≥ 3.6.1
+
+---
+
+## 🛠️ Installation
+
+### Using `conda` prepare prerequisites (Recommended)
+```bash
+conda create -n IsoQMap python=3.8 r-base=4.1.2 r-essentials
 conda activate IsoQMap
 conda install -c conda-forge r-foreach r-doparallel
-pip install isoqmap
-``` 
-
-## qucik start
 ```
+
+### Quick installation
+```bash
+pip install isoqmap
+# (For China Mainland)
+pip install isoqmap -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+---
+
+## 🚀 Quick Start
+
+```bash
 isoqmap --help
 ```
 
-## Example
-An example is prepared in the project **Example** folder, executable as
-```
-cd /path/to/iGTEx_XAEM/Example
-sh run_example.sh 
+---
+
+## 📁 Example
+
+A working example command is provided in the `Example/` directory:
+
+```bash
+cd /path/to/isoqmap/Example
+sh run_example.sh
 ```
 
-## isoqmap
-#### Input files
-In `/path/to/workdir`, create a file `/path/to/workdir/infastq_lst.tsv` listing the FASTQ input files. The file is a tab-delimited text file with 4 columns: `Sample name`, `Source name`, `FASTQ file name for paired-end read 1`, and `FASTQ file name for paired-end read 2`. `Source name` indicates the batch or sequencing library of the sample, so that the same sample may correspond to more than one sources. A standard example, where each sample has only a single batch or multiple batches, is given as `/path/to/isoqmap/Example/infastq_lst.tsv`:
+---
 
-##### single batch
+## 🔬 Isoform Expression Quantification (`isoqmap isoquan`)
+
+### 🔹 Prepare Input file
+
+Prepare a tab-delimited file for FASTQ file (e.g., `infastq_lst.tsv`) with four columns:
+
 ```
-sample4 S0007   S0007_1.fg.gz   S0007_2.fg.gz
-sample5 S0008   S0008_1.fg.gz   S0008_2.fg.gz
-```
-##### multiple batches
-```
-sample1 S0001   S0001_1.fg.gz   S0001_2.fg.gz
-sample1 S0002   S0002_1.fg.gz   S0002_2.fg.gz
-sample2 S0003   S0003_1.fg.gz   S0003_2.fg.gz
-sample2 S0004   S0004_1.fg.gz   S0004_2.fg.gz
-sample3 S0005   S0005_1.fg.gz   S0005_2.fg.gz
-sample3 S0006   S0006_1.fg.gz   S0006_2.fg.gz
+SampleName   SourceName   FASTQ_R1   FASTQ_R2
 ```
 
+#### Example: Single Batch
+```
+sample4   S0007   S0007_1.fq.gz   S0007_2.fq.gz
+sample5   S0008   S0008_1.fq.gz   S0008_2.fq.gz
+```
 
-#### Run isoform quanlification 
-XAEM can be easily run with:
-```
-isoqmap isoquan -i /path/to/Tissue1/infastq_lst.tsv
-```
-(Optional) To specify a particular reference with gencode hg38, use:
-```
---ref gencode_38
-```
-(Optional) To specify a particular output directory, use:
-```
--o /path/to/Tissue1_output_directory
-```
-(Optional) Further customized configuration of XAEM can be setup by:
-```
--c /path/to/Tissue1_config.ini
-```
-An example of the `config.ini` file can be found in `/path/to/isoqmap/config.ini/`.
+#### Example: Multiple Batches
 
-
-## isoqtl
-
-### preprocess
-Prepare for QTL mapping fot eQTL/isoQTL/irQTL, from tpm expression matrix to BOD file
 ```
+sample1   S0001   S0001_1.fq.gz   S0001_2.fq.gz
+sample1   S0002   S0002_1.fq.gz   S0002_2.fq.gz
+sample2   S0003   S0003_1.fq.gz   S0003_2.fq.gz
+sample2   S0004   S0004_1.fq.gz   S0004_2.fq.gz
+```
+
+### 🔹 Run isoquan 
+
+```bash
+isoqmap isoquan -i /path/to/infastq_lst.tsv
+```
+
+#### Optional:
+
+- Specify a reference:
+  ```bash
+  --ref gencode_38
+  ```
+- Provide a custom config:
+  ```bash
+  -c /path/to/config.ini
+  ```
+---
+
+## 🧬 Isoform and Gene QTL Mapping (`isoqmap isoqtl`)
+
+### Step 1: Preprocess input files for QTL mapping
+```bash
 isoqmap isoqtl preprocess -i path/to/XAEM_isoform_expression_tpm.tsv.gz --isoform-ratio --ref gencode_38 --covariates /path/to/QTL_covariates.tsv
 ```
-### call
+This step involves transforming isoform expression data into isoform ratios, applying normalization, adjusting for covariates, and generating the input BOD file for downstream QTL mapping.
 
-### format
-#### sqtl
+### Step 2: Run QTL mapping (eQTL / isoQTL / irQTL)
+```bash
+isoqmap isoqtl call 
 ```
+You can specify QTL types and models via CLI options.
+
+
+### Step 3: Format QTL results
+```bash
+isoqmap isoqtl format 
+# sqtl
 isoqmap isoqtl format --infile 'workdir/QTL_results/osca_qtl.*.sqtl_10_*_isoform_eQTL_effect.txt.gz' --mode sqtl --ref gencode_38 --id2rs-file path/to/anno_into.tsv.gz
-```
-#### eqtl
+# eqtl 
 isoqmap isoqtl format --infile 'workdir/QTL_results/osca_qtl.gene_abundance.eqtl_10_*.besd' --mode eqtl --ref gencode_38 --id2rs-file path/to/anno_into.tsv.gz
+```
+This step formats the results for downstream Mendelian Randomization (MR), Colocalization (coloc), or other integrative analyses.
+
+---
+
+## 📬 Feedback
+
+For issues, bug reports, or feature requests, please open an issue or submit a pull request.
+
+---
+
+## 📄 License
+
+MIT License
+>>>>>>> 10b7151916c79cb34e7ca6f7f38dcdc753b341f9

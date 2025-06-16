@@ -194,6 +194,12 @@ def fetch_sig(fi):
         for df, outfile in iso_outputs:
             df.to_csv(outfile, sep='\t', index=False)
             logger.info(f"Saved {outfile}")
+            
+        logger.info(f"Compress {fi_gene} and {fi_isoform}")
+        os.system(f'gzip {fi_gene}')
+        os.system(f'gzip {fi_isoform}')
+        logger.info(f"Get {fi_gene}.gz and {fi_isoform}.gz") 
+        
     
     except Exception as e:
         logger.error(f"Error processing significant results for {fi}: {str(e)}")
@@ -241,8 +247,9 @@ def besd2txt(fi):
 def process_gene_data(input_path: str) -> None:
     """Process single gene file (multi-processing compatible version)"""
     try:
+        
         output_path = Path(input_path).with_name(
-            Path(input_path).name.replace(".tsv.gz", ".format.tsv.gz")
+            Path(input_path).name.replace(".txt.gz", ".format.tsv.gz")
         )
         
         logger.info(f"Processing: {input_path} → {output_path}")
@@ -385,15 +392,33 @@ def run_format(verbose, infile, mode, ref, id2rs_file, id2rs_idname, id2rs_rsnam
                     exit_on_error=False
                 ):
                     osca_bin = download_osca()
-
-                # convert BESD files
-                results = pool.map(safe_besd2txt, files_to_process)
-                failed = sum(1 for r in results if not r)
-                if failed > 0:
-                    logger.warning(f"Failed to convert {failed} BESD files")
                 
+                
+                files_besd_to_process = []
+                for i in files_to_process:
+                    if not i.endswith('.besd') and not os.path.exists(i):
+                        logger.warning(f"{i} failed to query from besd to txt because {i} not exits or not endwiths *besd ")
+                        continue
+                    elif os.path.exists(i.replace('.besd', '.txt.gz')):
+                        logger.warning(f"{i} failed to query from besd to txt because results {i.replace('.besd', '.txt.gz')} exits")
+                        continue
+                    files_besd_to_process.append(i)  
+                
+                if files_besd_to_process>0:
+                    # convert BESD files
+                    results = pool.map(safe_besd2txt, files_besd_to_process)
+                    failed = sum(1 for r in results if not r)
+                    if failed > 0:
+                        logger.warning(f"Failed to convert {failed} BESD files")
+                              
                 # Second pass: process gene data
-                txt_files = [f.replace('.besd', '.txt.gz') for f in files_to_process]
+                txt_files = []  
+                for i in files_to_process:
+                    txt_fi = i.replace('.besd', '.txt.gz')
+                    if not os.path.exists(txt_fi) or not txt_fi.endswith('.txt.gz'):
+                        logger.warning(f"{txt_fi} failed to query from besd to txt because {txt_fi} not exits or not endwiths *besd ")
+                        continue
+                    txt_files.append(i)
                 results = pool.map(safe_process_gene_data, txt_files)
                 failed = sum(1 for r in results if not r)
                 if failed > 0:

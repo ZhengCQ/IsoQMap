@@ -51,7 +51,7 @@ sample3 S0006   S0006_1.fg.gz   S0006_2.fg.gz
 ```
 
 
-#### Run XAEM 
+#### Run isoform quanlification 
 XAEM can be easily run with:
 ```
 isoqmap isoquan -i /path/to/Tissue1/infastq_lst.tsv
@@ -73,36 +73,17 @@ An example of the `config.ini` file can be found in `/path/to/isoqmap/config.ini
 
 ## isoqtl
 
-### Prepare for QTL mapping
+### preprocess
+Prepare for QTL mapping fot eQTL/isoQTL/irQTL, from tpm expression matrix to BOD file
+```
+isoqmap isoqtl preprocess -i path/to/XAEM_isoform_expression_tpm.tsv.gz --isoform-ratio --ref gencode_38 --covariates /path/to/QTL_covariates.tsv
+```
+### call
 
-#### Calculate isoform ratio  
-Isoform ratio can be easily run with
+### format
+#### sqtl
 ```
-python /path/to/iGTEx_XAEM/exp2ratio.py -i /path/to/XAEM_isoform_expression.RData
+isoqmap isoqtl format --infile 'workdir/QTL_results/osca_qtl.*.sqtl_10_*_isoform_eQTL_effect.txt.gz' --mode sqtl --ref gencode_38 --id2rs-file path/to/anno_into.tsv.gz
 ```
-(Optional) To specify a particular reference with gencode hg38, use:
-```
---ref gencode_38
-```
-(Optional) The default output directory as same as input isoform file. To specify a particular output directory, use:
-```
--o /path/to/Tissue1_output_directory
-```
-(Optional) To specify a covariates file for linear regression:
-```
---covariates /path/to/covariates_file
-```
-
-#### eQTL/isoQTL/irQTL
-##### BOD file
-```
-/path/to/osca --efile /path/to/TissueName/isoform_splice_ratio.tsv --gene-expression --make-bod --no-fid --out TissueName 
-/path/to/osca --befile TissueName --update-opi /path/to/iGTEx_XAEM/ref/gencode_38/anno_gene_info.opi
-```
-##### isoQTL abundance
-```
-/path/to/osca --sqtl --bfile /path/to/Genotype/BED_All/TissueName_Genotype --befile TissueName --maf 0.05 --call 0.85 --cis-wind 1000 --thread-num 10 --task-num 1 --task-num 1 --task-id 1 --to-smr --bed /path/to/iGTEx_XAEM/ref/gencode_38/anno_gene_info.bed --out sQTL_results/TissueName
-```
-
-
-
+#### eqtl
+isoqmap isoqtl format --infile 'workdir/QTL_results/osca_qtl.gene_abundance.eqtl_10_*.besd' --mode eqtl --ref gencode_38 --id2rs-file path/to/anno_into.tsv.gz

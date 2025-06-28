@@ -1,1 +1,2 @@
 exclude src/isoqmap/resources/ref/*
+recursive-include src/isoqmap/tools *.R

@@ -225,7 +225,7 @@ def count_matrix(outdir, xaem_dir, config, x_matrix, step=3):
     merge.paralogs={config.getboolean('xaem', 'merge.paralogs')} \\
     isoform.method={config.get('xaem', 'isoform.method')} \\
     remove.ycount={config.getboolean('xaem', 'remove.ycount')}""",
-        f"Rscript {binfinder.find('./resources/isoform_rdata2exp.R')} {resdir}/XAEM_isoform_expression.RData"
+        f"Rscript {binfinder.find('./tools/isoform_rdata2exp.R')} {resdir}/XAEM_isoform_expression.RData"
     ])
     shell_file = f'{outdir}/shell/Step{step}.matrix_samples.sh'
     write_shell(shell_file, cmd)

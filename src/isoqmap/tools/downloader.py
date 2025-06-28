@@ -75,7 +75,7 @@ def decompress_zip(file_path):
         zip_ref.extractall(output_dir)
     print(f"✔ Decompressed to directory: {output_dir}")
 
-def download_file_with_retry(url, dest_path, retries=3, delay=2):
+def download_file_with_retry(url, dest_path, retries=6, delay=3):
     for attempt in range(1, retries + 1):
         try:
             # 1. 检查本地是否已有部分内容

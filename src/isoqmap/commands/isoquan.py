@@ -181,8 +181,9 @@ def count_matrix(outdir, xaem_dir, config, x_matrix, step=3):
         merge.paralogs={config.getboolean('xaem', 'merge.paralogs')} \\
         isoform.method={config.get('xaem', 'isoform.method')} \\
         remove.ycount={config.getboolean('xaem', 'remove.ycount')}\n"""
-    cmd += f"""Rscript {binfinder.find(f'./resources/isoform_rdata2exp.R')} {resdir}/XAEM_isoform_expression.RData"""
     
+    cmd += f"""Rscript {binfinder.find(f'./tools/isoform_rdata2exp.R')} {resdir}/XAEM_isoform_expression.RData"""
+    i
     shell_file = f'{outdir}/shell/Step{step}.matrix_samples.sh'
     with open(shell_file, 'w') as outf:
         outf.write(cmd)
@@ -319,7 +320,7 @@ def run_isoquan(infile, ref, config, outdir, xaem_dir, xaem_index, x_matrix, for
         logger.error(f'Index Error, please check {shell_lst[0]}.stderr')
 
     # Step 2: Process equivalence classes
-    thread_n = int(cfg.getint('xaem', 'eqclass_cpu') / 2)
+    thread_n = int(cfg.getint('xaem', 'eqclass_cpu') / 4)
     count = 1
     while not is_success(df_status, 'eqclass') and count <= 2:
         df_status_eqclass = df_status.query("name == 'eqclass'")

@@ -101,7 +101,7 @@ def ensure_transcript_exists(refdb: str, config, binfinder, logger):
         print(f"Transcript file not found or unreadable. Trying to download for {refdb}...")
         download_reference(refdb, ['transcript'])
         
-        transcript = binfinder.find(f'./resources/ref/{refdb}/transcript.fa.gz')
+        transcript = str(binfinder.find(f'./resources/ref/{refdb}/transcript.fa.gz'))
 
         # 3. 再次检查，下载后必须存在
         if not common.check_file_exists(

@@ -404,7 +404,8 @@ def run_format(verbose, infile, mode, ref, id2rs_file, id2rs_idname, id2rs_rsnam
                         continue
                     files_besd_to_process.append(i)  
                 
-                if files_besd_to_process>0:
+                if len(files_besd_to_process)>0:
+                    logger.warning(f" to convert {len(files_besd_to_process)} BESD files")
                     # convert BESD files
                     results = pool.map(safe_besd2txt, files_besd_to_process)
                     failed = sum(1 for r in results if not r)
@@ -419,6 +420,7 @@ def run_format(verbose, infile, mode, ref, id2rs_file, id2rs_idname, id2rs_rsnam
                         logger.warning(f"{txt_fi} failed to query from besd to txt because {txt_fi} not exits or not endwiths *besd ")
                         continue
                     txt_files.append(i)
+                
                 results = pool.map(safe_process_gene_data, txt_files)
                 failed = sum(1 for r in results if not r)
                 if failed > 0:

@@ -265,7 +265,7 @@ def process_gene_data(input_path: str) -> None:
 
         # Process data
         if id2rs:
-            df_gene['SNP'] = df_gene['SNP'].map(id2rs)
+            df_gene['SNP'] = df_gene['SNP'].apply(lambda x:id2rs.get(x, x))
             
         df_gene = df_gene[df_gene['Gene'].isin(gene2tss)]
         df_gene['tss_dis'] = df_gene['Gene'].map(gene2tss) - df_gene['BP']
@@ -404,8 +404,7 @@ def run_format(verbose, infile, mode, ref, id2rs_file, id2rs_idname, id2rs_rsnam
                         continue
                     files_besd_to_process.append(i)  
                 
-                if len(files_besd_to_process)>0:
-                    logger.warning(f" to convert {len(files_besd_to_process)} BESD files")
+                if files_besd_to_process>0:
                     # convert BESD files
                     results = pool.map(safe_besd2txt, files_besd_to_process)
                     failed = sum(1 for r in results if not r)
@@ -420,7 +419,6 @@ def run_format(verbose, infile, mode, ref, id2rs_file, id2rs_idname, id2rs_rsnam
                         logger.warning(f"{txt_fi} failed to query from besd to txt because {txt_fi} not exits or not endwiths *besd ")
                         continue
                     txt_files.append(i)
-                
                 results = pool.map(safe_process_gene_data, txt_files)
                 failed = sum(1 for r in results if not r)
                 if failed > 0:

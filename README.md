@@ -66,7 +66,6 @@ SampleName   SourceName   FASTQ_R1   FASTQ_R2
 ```
 
 #### Example: Single Batch
-
 ```
 sample4   S0007   S0007_1.fq.gz   S0007_2.fq.gz
 sample5   S0008   S0008_1.fq.gz   S0008_2.fq.gz
@@ -97,14 +96,13 @@ isoqmap isoquan -i /path/to/infastq_lst.tsv
   ```bash
   -c /path/to/config.ini
   ```
-
 ---
 
 ## 🧬 Isoform and Gene QTL Mapping (`isoqmap isoqtl`)
 
 ### Step 1: Preprocess input files for QTL mapping
 ```bash
-isoqmap isoqtl preprocess
+isoqmap isoqtl preprocess -i path/to/XAEM_isoform_expression_tpm.tsv.gz --isoform-ratio --ref gencode_38 --covariates /path/to/QTL_covariates.tsv
 ```
 This step involves transforming isoform expression data into isoform ratios, applying normalization, adjusting for covariates, and generating the input BOD file for downstream QTL mapping.
 
@@ -118,6 +116,10 @@ You can specify QTL types and models via CLI options.
 ### Step 3: Format QTL results
 ```bash
 isoqmap isoqtl format 
+# sqtl
+isoqmap isoqtl format --infile 'workdir/QTL_results/osca_qtl.*.sqtl_10_*_isoform_eQTL_effect.txt.gz' --mode sqtl --ref gencode_38 --id2rs-file path/to/anno_into.tsv.gz
+# eqtl 
+isoqmap isoqtl format --infile 'workdir/QTL_results/osca_qtl.gene_abundance.eqtl_10_*.besd' --mode eqtl --ref gencode_38 --id2rs-file path/to/anno_into.tsv.gz
 ```
 This step formats the results for downstream Mendelian Randomization (MR), Colocalization (coloc), or other integrative analyses.
 

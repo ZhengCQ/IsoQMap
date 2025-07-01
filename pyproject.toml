@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "isoqmap"
-version = "0.1.0"
+version = "0.1.1"
 description = "IsoQMap CLI tool"
 authors = [{name = "Chenqing Zheng"}]
 dependencies = [

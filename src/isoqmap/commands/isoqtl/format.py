@@ -55,13 +55,15 @@ def format_file(fi):
     header = ['SNP', 'chr', 'pos', 'A1', 'A2', 'freq', 'beta', 'se', 'pval', 'pheno_name', 'tss_dis']
     try:
         if not fi.endswith('gz'):
+            base_name = fi.replace(".txt", "")
             cmd = f'gzip -f {fi}'
             logger.info(f"Running gzip command: {cmd}")
             #subprocess.run(cmd, check=True)
             os.system(f'{cmd}')
-            fi = f'{fi}.gz'   
-
-        base_name = fi.replace(".txt.gz", "")
+            fi = f'{fi}.gz'
+        else:
+            base_name = fi.replace(".txt.gz", "")
+            
         logger.info(f"Formatting file: {fi}")
         
         # Open output files
@@ -145,7 +147,10 @@ def format_file(fi):
 def fetch_sig(fi):
     """Extract significant results from formatted files"""
     try:
-        base_name = fi.replace(".txt.gz", "")
+        if fi.endswith('.txt.gz'):
+            base_name = fi.replace(".txt.gz", "")
+        else:
+            base_name = fi.replace(".txt", "")
         logger.info(f"Extracting significant results from {fi}")
         
         # For Gene
@@ -404,7 +409,7 @@ def run_format(verbose, infile, mode, ref, id2rs_file, id2rs_idname, id2rs_rsnam
                         continue
                     files_besd_to_process.append(i)  
                 
-                if files_besd_to_process>0:
+                if len(files_besd_to_process)>0:
                     # convert BESD files
                     results = pool.map(safe_besd2txt, files_besd_to_process)
                     failed = sum(1 for r in results if not r)
@@ -418,7 +423,7 @@ def run_format(verbose, infile, mode, ref, id2rs_file, id2rs_idname, id2rs_rsnam
                     if not os.path.exists(txt_fi) or not txt_fi.endswith('.txt.gz'):
                         logger.warning(f"{txt_fi} failed to query from besd to txt because {txt_fi} not exits or not endwiths *besd ")
                         continue
-                    txt_files.append(i)
+                    txt_files.append(txt_fi)
                 results = pool.map(safe_process_gene_data, txt_files)
                 failed = sum(1 for r in results if not r)
                 if failed > 0:

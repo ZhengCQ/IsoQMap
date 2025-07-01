@@ -164,7 +164,8 @@ def call(osca, bfile, befile, mode, ref, outdir, prefix, backend, config, run):
         gene_bed_fi = common.geneinfo_2bed(gene_info_fi)
         if not Path(gene_bed_fi).exists():
             raise FileNotFoundError("BED file generation failed.")
-
+    befile_names = os.path.basename(befile)
+    prefix = f'{prefix}.{befile_names}'
     bed_file = gene_bed_fi if mode == 'sqtl' else None
     if not prefix.endswith(mode):
         prefix = f"{prefix}.{mode}"

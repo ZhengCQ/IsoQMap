@@ -31,6 +31,7 @@ def check_input_files(isoform_file, cov_file, refdb):
     ## covariate
     logger.info(f'Reading covariate file {cov_file} and checking covariate samples')
     df_cov = pd.read_csv(cov_file, sep='\t', index_col=0)
+    df_cov.columns = [i.replace(' ', '') for i in df_cov.columns]
     logger.info(f'There are {df_cov.shape[1]} Samples and {df_cov.shape[0]} items for adjust in covariate file.')
     ### Read expression file for columns
     logger.info(f'Prereading expression file {isoform_file}...')
@@ -318,10 +319,11 @@ def run_preprocess(isoform, covariates, ref, isoform_ratio, prefix, outdir, tpm_
 @click.option('--covariates', required=True, help='Covariate file.')
 @click.option('--ref', default='gencode_38', type=click.Choice(['refseq_38', 'gencode_38']), help='Reference database.')
 @click.option('--isoform-ratio', is_flag=True, help='Calculate isoform expression splice ratio.')
-@click.option('--prefix', default='IsoQ', help='Output file prefix.')
-@click.option('--outdir', default='./workdir', help='Output directory.')
-@click.option('--tpm-threshold', default=0.1, show_default=True, help='TPM threshold for filtering.')
-@click.option('--sample-threshold-ratio', default=0.2, show_default=True, help='Minimum fraction of samples where isoform must pass TPM threshold.')
+@click.option('--prefix', default='IsoQ', help='Output file prefix. default: IsoQ')
+@click.option('--outdir', default='./workdir', help='Output directory. default: workdir')
+@click.option('--tpm-threshold', default=0.1, show_default=True, help='TPM threshold for filtering. default: 0.1')
+@click.option('--sample-threshold-ratio', default=0.2, show_default=True, 
+              help='Minimum fraction of samples where isoform must pass TPM threshold. default: 0.2')
 def preprocess(verbose, isoform, covariates, **kwargs):
     """Preprocess input data for IsoQTL"""
 

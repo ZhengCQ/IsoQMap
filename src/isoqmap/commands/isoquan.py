@@ -25,12 +25,20 @@ threadLock = threading.Lock()
 def setup_logger(log_file, verbose=False):
     FORMAT = '%(asctime)s %(message)s'
     level = logging.DEBUG if verbose else logging.INFO
+
+    logger = logging.getLogger()
+
+    if logger.hasHandlers():
+        logger.handlers.clear()
+
     logging.basicConfig(filename=log_file, level=level, format=FORMAT)
+
     console = logging.StreamHandler()
     console.setLevel(level)
     formatter = logging.Formatter(FORMAT)
     console.setFormatter(formatter)
-    logging.getLogger('').addHandler(console)
+    logging.getLogger().addHandler(console)
+
 
 def log_info(msg):
     logging.getLogger(__name__).info(msg)
@@ -225,11 +233,12 @@ def count_matrix(outdir, xaem_dir, config, x_matrix, step=3):
     merge.paralogs={config.getboolean('xaem', 'merge.paralogs')} \\
     isoform.method={config.get('xaem', 'isoform.method')} \\
     remove.ycount={config.getboolean('xaem', 'remove.ycount')}""",
-        f"Rscript {binfinder.find('./tools/isoform_rdata2exp.R')} {resdir}/XAEM_isoform_expression.RData"
+        f"Rscript {binfinder.find('./tools/isoform_rdata2exp.R')} inRdata={resdir}/XAEM_isoform_expression.RData && gzip {resdir}/XAEM_isoform_expression_count.tsv && gzip {resdir}/XAEM_isoform_expression_tpm.tsv"
     ])
     shell_file = f'{outdir}/shell/Step{step}.matrix_samples.sh'
     write_shell(shell_file, cmd)
     return shell_file
+
 
 # -----------------------------------------------------------------------
 # Job run helpers
@@ -249,108 +258,145 @@ def write_status(df, status_file):
     df.to_csv(status_file, sep='|', index=False)
     df[df['status'] == 'Error'].to_csv(f'{status_file}.Error', sep='|', index=False)
 
+
+def get_all_shells(outdir, df_sample, config, xaem_dir, refdb, xaem_index=None, x_matrix=None):
+    shell_info = []
+    step_n = 1
+    if xaem_index:
+        TxIndexer_idx = os.path.abspath(xaem_index)
+    else:
+        TxIndexer_idx, cmd = index_ref(outdir, config, xaem_dir, refdb, step=step_n)
+        shell_info.append([cmd, step_n, 'index'])
+        step_n += 1
+
+    eqclass_shells = get_eqclass(df_sample, outdir, xaem_dir, TxIndexer_idx, step=step_n)
+    shell_info.extend([[i, step_n, 'eqclass'] for i in eqclass_shells])
+    step_n += 1
+
+    x_matrix = ensure_xmatrix_exists(refdb, config, binfinder)
+
+    cmd = count_matrix(outdir, xaem_dir, config, x_matrix, step=step_n)
+    shell_info.append([cmd, step_n, 'matrix'])
+
+    df_shell_info = pd.DataFrame(shell_info)
+    df_shell_info['status'] = 'Ready'
+    df_shell_info.columns = ['shell', 'step', 'name', 'status']
+    status_file = f'{outdir}/shell/JOB.Status'
+    df_shell_info.to_csv(status_file, index=False, sep='|')
+    return status_file
 # -----------------------------------------------------------------------
 # Main logic
 # -----------------------------------------------------------------------
 
-def run_isoquan(infile, ref, config, outdir, xaem_dir, xaem_index, x_matrix, force):
-    cfg = configparser.ConfigParser()
-    cfg.read(config or binfinder.find('./config.ini'), encoding='utf-8')
 
+
+def run_isoquan(infile, ref, config, outdir, xaem_dir, xaem_index, x_matrix, force):
+    """
+    Run the full isoform quantification pipeline
+    """
+    # Load config
+    cfg = configparser.ConfigParser()
+    if config:
+        cfg.read(config, encoding="utf-8")
+    else:
+        cfg.read(binfinder.find('./config.ini'), encoding="utf-8")
+
+    # XAEM path
     if not xaem_dir:
         xaem_dir = cfg.get('xaem', 'xaem_dir') or binfinder.find('./resources/XAEM/XAEM-binary-0.1.1-cq')
     log_info(f"Parameter: xaem_dir is {xaem_dir}")
     if not os.path.exists(xaem_dir):
         raise FileNotFoundError(f"XAEM binary not found at {xaem_dir}")
 
-    # Create output dirs
+    # Prepare directories
     outdir = os.path.abspath(outdir)
-    for sub in ['seqData', 'results', 'shell', 'ref']:
-        os.makedirs(f"{outdir}/{sub}", exist_ok=True)
+    for sub in ["", "seqData", "results", "shell", "ref"]:
+        os.makedirs(os.path.join(outdir, sub), exist_ok=True)
 
-    # Read sample info
+    # Sample info
     df_sample = read_sampleinfo(infile)
 
+    # Prepare shell scripts
     status_file = f"{outdir}/shell/JOB.Status"
     if not os.path.exists(status_file) or force:
-        log_info("Generating all jobs")
-        shell_info = []
-        step_n = 1
-
-        if xaem_index:
-            TxIndexer_idx = os.path.abspath(xaem_index)
-        else:
-            TxIndexer_idx, cmd = index_ref(outdir, cfg, xaem_dir, ref, step=step_n)
-            shell_info.append([cmd, step_n, 'index'])
-            step_n += 1
-
-        eqclass_shells = get_eqclass(df_sample, outdir, xaem_dir, TxIndexer_idx, step=step_n)
-        shell_info.extend([[sh, step_n, 'eqclass'] for sh in eqclass_shells])
-        step_n += 1
-
-        x_matrix = ensure_xmatrix_exists(ref, cfg, binfinder)
-        cmd = count_matrix(outdir, xaem_dir, cfg, x_matrix, step=step_n)
-        shell_info.append([cmd, step_n, 'matrix'])
-
-        df_shell_info = pd.DataFrame(shell_info, columns=['shell', 'step', 'name'])
-        df_shell_info['status'] = 'Ready'
-        df_shell_info.to_csv(status_file, sep='|', index=False)
+        log_info("Generating all jobs...")
+        status_file = get_all_shells(
+            outdir, df_sample, cfg, xaem_dir, ref,
+            xaem_index=xaem_index, x_matrix=x_matrix
+        )
     else:
-        log_info(f"{status_file} exists. Continuing unfinished jobs.")
+        log_info(f"Found existing status file {status_file}. Resuming jobs. Use --force to regenerate.")
 
     # Load job status
-    df_status = pd.read_csv(status_file, sep='|')
-    log_info(f"There are {df_status.shape[0]} jobs.")
+    df_status = pd.read_csv(status_file, sep="|")
+    status_dict = df_status.groupby("status").size().to_dict()
+    log_info(f"There are {df_status.shape[0]} jobs: {status_dict}")
 
-    # Step 1
-    if df_status.query("name == 'index'").shape[0] == 1:
-        if not is_success(df_status, 'index'):
-            sh_nm = df_status.query("name == 'index'")['shell'].iloc[0]
-            df_status = single_job_run(sh_nm, df_status, status_file)
+    # ----------------------
+    # Step 1: index
+    # ----------------------
+    df_index = df_status[df_status['name'] == 'index']
+    if not is_success(df_status, "index") and not df_index.empty:
+        sh = df_index.iloc[0]['shell']
+        df_status = single_job_run(sh, df_status, status_file)
 
-    if not is_success(df_status, 'index'):
-        log_error(f"Index Error, please check {sh_nm}.stderr")
+    if is_success(df_status, "index"):
+        log_info("Index finished successfully. Proceeding to eqclass.")
+    else:
+        sh = df_index.iloc[0]['shell'] if not df_index.empty else "unknown"
+        log_error(f"Index failed. Check {sh}.stderr")
         return
 
-    # Step 2
-    df_status_eqclass = df_status.query("name == 'eqclass'")
-    retries = 2
-    count = 0
-    while not is_success(df_status, 'eqclass') and count < retries:
-        shell_lst = df_status_eqclass.query("status != 'Success'")['shell'].tolist()
-        workQueue = queue.Queue()
-        for sh in shell_lst:
-            workQueue.put(sh)
+    # ----------------------
+    # Step 2: eqclass
+    # ----------------------
+    thread_n = int(cfg.getint('xaem', 'eqclass_cpu') / 2)
+    count = 1
+    while not is_success(df_status, 'eqclass') and count <= 2:
+        df_status_eqclass = df_status.query("name == 'eqclass'")
+        shell_lst = df_status_eqclass.query("status != 'Success'")['shell'].to_list()
+
+        workQueue = queue.Queue(len(shell_lst))
+        for fi in shell_lst:
+            workQueue.put(fi)
 
         threads = []
-        thread_n = int(cfg.getint('xaem', 'eqclass_cpu') / 2)
-        for _ in range(min(thread_n, len(shell_lst))):
-            t = MyThread(workQueue, df_status)
-            t.start()
-            threads.append(t)
-        for t in threads:
-            t.join()
+        actual_threads = min(thread_n, len(shell_lst))
+        for i in range(actual_threads):
+            thread = MyThread(workQueue, df_status)
+            thread.start()
+            df_status = thread.df_status
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
 
         count += 1
         write_status(df_status, status_file)
 
-    # Step 3
-    if is_success(df_status, 'eqclass'):
-        log_info("Eqclass finished. Starting matrix.")
+    if is_success(df_status, "eqclass"):
+        success_count = df_status.query("name == 'eqclass' and status == 'Success'").shape[0]
+        log_info(f"All eqclass jobs finished successfully ({success_count} jobs). Proceeding to matrix.")
     else:
-        log_error("Eqclass jobs failed. Check error logs.")
+        error_jobs = df_status.query("name == 'eqclass' and status != 'Success'")
+        log_error(f"eqclass failed for {len(error_jobs)} jobs. Check {status_file}.Error for details.")
         return
 
-    if not is_success(df_status, 'matrix'):
-        sh_nm = df_status.query("name == 'matrix'")['shell'].iloc[0]
-        df_status = single_job_run(sh_nm, df_status, status_file)
+    # ----------------------
+    # Step 3: matrix
+    # ----------------------
+    df_matrix = df_status[df_status['name'] == 'matrix']
+    if not is_success(df_status, "matrix") and not df_matrix.empty:
+        sh = df_matrix.iloc[0]['shell']
+        df_status = single_job_run(sh, df_status, status_file)
 
-    if is_success(df_status, 'matrix'):
-        log_info("Matrix finished. All jobs successful.")
+    if is_success(df_status, "matrix"):
+        log_info("Matrix step finished. All jobs successfully completed!")
     else:
-        log_error("Matrix not finished successfully.")
+        sh = df_matrix.iloc[0]['shell'] if not df_matrix.empty else "unknown"
+        log_error(f"Matrix step failed. Check {sh}.stderr")
 
-# ----------------------------------------------------------------------------
+#----------------------------------------------------------------------------
 # CLI entry
 # ----------------------------------------------------------------------------
 

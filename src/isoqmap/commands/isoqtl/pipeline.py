@@ -1,51 +1,142 @@
 import click
+import logging
+import os
+import glob
+
 from .preprocess import run_preprocess
 from .call import run_osca_task
 from .format import run_format
-from ...tools import pathfinder,common
-import logging
+from ...tools import pathfinder, common
+from ...tools.downloader import download_reference, download_osca
 
 logger = logging.getLogger(__name__)
-binfinder = pathfinder.BinPathFinder('isomap')
-from ...tools.downloader import download_reference, download_osca
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+
+binfinder = pathfinder.BinPathFinder('isoqmap')
 
 
 def precheck(ref):
-    osca_bin = str(binfinder.find('./resources/osca'))
-    
-    gene_info_fi = str(binfinder.find(f'./resources/ref/{ref}/transcript_gene_info.tsv.gz')) 
+    """
+    检查并下载 reference files
+    """
+    try:
+        osca_bin = str(binfinder.find('./resources/osca'))
+        logger.info(f"Found OSCA binary at: {osca_bin}")
+    except FileNotFoundError:
+        logger.error("OSCA binary not found. Please install or download it.")
+        download_osca()
+        osca_bin = str(binfinder.find('./resources/osca'))
+        logger.info(f"Downloaded OSCA binary to: {osca_bin}")
+
+    gene_info_fi = str(binfinder.find(f'./resources/ref/{ref}/transcript_gene_info.tsv.gz'))
     if not common.check_file_exists(
         gene_info_fi,
-        file_description=f"Gene annotaion file {gene_info_fi}",
+        file_description=f"Gene annotation file {gene_info_fi}",
         logger=logger,
         exit_on_error=False
     ):
-        print(f"Gene annotaion file not found or unreadable. Trying to download for {ref}...")
+        logger.warning(f"Gene annotation file not found. Downloading for {ref}...")
         download_reference(ref, ['geneinfo'])
-    
         gene_info_fi = str(binfinder.find(f'./resources/ref/{ref}/transcript_gene_info.tsv.gz'))
-           
+
     gene_bed_fi = str(binfinder.find(f'./resources/ref/{ref}/anno_gene_info.bed'))
-    
+    logger.info(f"Reference check completed. Gene BED file: {gene_bed_fi}")
 
 
 @click.command()
+@click.option('--outdir', required=True, help='Output directory for the entire pipeline.')
+@click.option('--ref', default='gencode_38', help='Reference version, e.g. gencode_38')
+@click.option('--bfile', required=True, help='Prefix of PLINK binary genotype file.')
+@click.option('--covariates', default='QTL_covariate.tsv', help='Covariate file path.')
+@click.option('--config', required=True, help='Path to config file.')
+@click.option('--force', is_flag=True, default=False, help='Force overwrite of existing files.')
+def pipeline(outdir, ref, bfile, covariates, config, force):
+    """
+    Run the full IsoQTL pipeline: preprocess → call → format
+    """
 
-def pipeline():
-    """Run the full IsoQTL pipeline: preprocess -> run -> format"""
-    click.echo("Running full IsoQTL pipeline...")
+    logger.info("Starting IsoQTL pipeline...")
 
-    # 模拟串行调用流程
-    click.echo("[Pipeline] Step 1: Preprocessing...")
-    run_preprocess()
+    # 检查 reference
+    precheck(ref)
 
-    click.echo("[Pipeline] Step 2: Running IsoQTL...")
-    run_osca_task()
+    # 第一步 preprocess
+    logger.info("[Pipeline] Step 1: Preprocessing data...")
 
-    click.echo("[Pipeline] Step 3: Formatting results...")
-    run_format()
+    bod_files = [
+        os.path.join(outdir, "BOD_files", "IsoQ.gene_abundance.bod"),
+        os.path.join(outdir, "BOD_files", "IsoQ.isoform_abundance.bod"),
+        os.path.join(outdir, "BOD_files", "IsoQ.isoform_splice_ratio.bod"),
+    ]
 
-    click.echo("Pipeline completed.")
+    if all(os.path.exists(f) for f in bod_files) and not force:
+        logger.info("Preprocess output exists. Skipping preprocessing.")
+    else:
+        run_preprocess(
+            input_file=os.path.join(outdir, "results", "XAEM_isoform_expression_tpm.tsv.gz"),
+            outdir=outdir,
+            ref=ref,
+            covariates=covariates
+        )
+
+    # 第二步 call
+    logger.info("[Pipeline] Step 2: Running IsoQTL calls...")
+
+    call_tasks = [
+        {
+            "name": "eQTL",
+            "befile": os.path.join(outdir, "BOD_files", "IsoQ.gene_abundance"),
+            "mode": "eqtl",
+            "pattern": os.path.join(outdir, "QTL_results", "osca_qtl_job.IsoQ.gene_abundance.eqtl_10_*.besd"),
+        },
+        {
+            "name": "isoQTL",
+            "befile": os.path.join(outdir, "BOD_files", "IsoQ.isoform_abundance"),
+            "mode": "sqtl",
+            "pattern": os.path.join(outdir, "QTL_results", "osca_qtl_job.IsoQ.isoform_abundance.sqtl_10_*.besd"),
+        },
+        {
+            "name": "irQTL",
+            "befile": os.path.join(outdir, "BOD_files", "IsoQ.isoform_splice_ratio"),
+            "mode": "sqtl",
+            "pattern": os.path.join(outdir, "QTL_results", "osca_qtl_job.IsoQ.isoform_splice_ratio.sqtl_10_*.besd"),
+        }
+    ]
+
+    for task in call_tasks:
+        existing_files = glob.glob(task["pattern"])
+        if existing_files and not force:
+            logger.info(f"{task['name']} results exist. Skipping call.")
+        else:
+            run_osca_task(
+                bfile=bfile,
+                befile=task["befile"],
+                mode=task["mode"],
+                outdir=os.path.join(outdir, "QTL_results"),
+                config=config
+            )
+
+    # 第三步 format
+    logger.info("[Pipeline] Step 3: Formatting QTL results...")
+
+    # isoQTL & irQTL
+    run_format(
+        infile=os.path.join(outdir, "QTL_results", "osca_qtl_job.*.sqtl_10_*_isoform_eQTL_effect.txt"),
+        mode="sqtl",
+        ref=ref
+    )
+    # eQTL
+    run_format(
+        infile=os.path.join(outdir, "QTL_results", "osca_qtl_job*eqtl_10_*.besd"),
+        mode="eqtl",
+        ref=ref
+    )
+
+    logger.info("IsoQTL pipeline finished successfully.")
 
 
-
+if __name__ == "__main__":
+    pipeline()

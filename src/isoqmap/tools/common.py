@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 from typing import Union, Optional, List
+import pandas as pd
 
 def check_file_exists(
     file_path: Union[str, List[str]],
@@ -91,8 +92,13 @@ def setup_logger(log_file, verbose):
     return logger
 
 def geneinfo_2bed(gene_info_file):
-    
-    return gene_info_file
+    df = pd.read_csv(gene_info_file,sep='\t')
+    dir_file = os.path.dirname(gene_info_file)
+    df_bed = df[['chromsome','start','end','gene_id','strand','gene_name']].drop_duplicates('gene_id')
+    df_bed['chromsome'] = df_bed['chromsome'].apply(lambda x:x.replace('chr',''))
+    df_bed_fi = f'{dir_file}/anno_gene_info.bed'
+    df_bed.to_csv(df_bed_fi,sep='\t',index=False,header=None)
+    return df_bed_fi
     
 
 

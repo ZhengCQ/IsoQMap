@@ -46,11 +46,11 @@ isoqmap --help
 
 ## 📁 Example
 
-A working example command is provided in the `Example/` directory:
+A working example command is provided in the `examples/` directory:
 
 ```bash
-cd /path/to/isoqmap/Example
-sh run_example.sh
+cd gitpath/to/isoqmap/examples
+sh Demo1.run.isoqmap_pipeline.sh
 ```
 
 ---
@@ -96,30 +96,79 @@ isoqmap isoquan -i /path/to/infastq_lst.tsv
   ```bash
   -c /path/to/config.ini
   ```
+- Specify a out directory
+  ```bash
+   -o path/to/workdir
+  ```
 ---
 
 ## 🧬 Isoform and Gene QTL Mapping (`isoqmap isoqtl`)
 
-### Step 1: Preprocess input files for QTL mapping
+### Pipline quick start (precess -> qtl calling -> format)
 ```bash
-isoqmap isoqtl preprocess -i path/to/XAEM_isoform_expression_tpm.tsv.gz --isoform-ratio --ref gencode_38 --covariates /path/to/QTL_covariates.tsv
+isoqmap isoqtl pipeline -i   /path/to/XAEM_isoform_expression_tpm.tsv.gz  --bfile  /path/to/genotype_for_isoqmap --covariates QTL_covariate.tsv
+```
+#### bfile demo
+```text
+genotype_for_isoqmap.bed  genotype_for_isoqmap.bim  genotype_for_isoqmap.fam
+```
+#### covariates demo
+| ID | S367402 | S367403 | ... | S367404 |
+|----|---------|---------|-----|---------|
+| Sex | 2       | 1       | ... | 2       |
+| age | 64      | 54      | ... | 65      |
+| ... | ...     | ...     | ... | ...     |
+| PC1 | -0.1037 | 0.0118  | ... | 0.0112  |
+| PC2 | -0.0173 | -0.003  | ... | -0.008  |
+| PC3 | 0.0017  | 0.0008  | ... | 0.0308  |
+
+
+#### Optional:
+- Specify a reference:
+  ```bash
+  --ref gencode_38
+  ```
+- Provide a custom config:
+  ```bash
+  -c /path/to/config.ini
+  ```
+- Specify a out directory
+  ```bash
+   -o path/to/workdir
+  ```
+---
+
+### Run by each model
+#### Step 1: Preprocess input files for QTL mapping
+```bash
+outdir=workdir
+isoqmap isoqtl preprocess -i path/to/XAEM_isoform_expression_tpm.tsv.gz --isoform-ratio --ref gencode_38 --covariates QTL_covariate.tsv --outdir $outdir 
 ```
 This step involves transforming isoform expression data into isoform ratios, applying normalization, adjusting for covariates, and generating the input BOD file for downstream QTL mapping.
 
-### Step 2: Run QTL mapping (eQTL / isoQTL / irQTL)
+#### Step 2: Run QTL mapping (eQTL / isoQTL / irQTL)
+
+##### eQTL
 ```bash
-isoqmap isoqtl call 
+isoqmap isoqtl call --bfile genotype/test_for_isoqmap --befile $outdir/BOD_files/IsoQ.gene_abundance --mode eqtl --outdir $outdir/QTL_results  --run   
+```                                               
+##### isoQTL
+```bash
+isoqmap isoqtl call --bfile genotype/test_for_isoqmap --befile $outdir/BOD_files/IsoQ.isoform_abundance --mode sqtl --outdir $outdir/QTL_results  --run     
+```                                               
+##### irQTL
+```bash
+isoqmap isoqtl call --bfile genotype/test_for_isoqmap --befile $outdir/BOD_files/IsoQ.isoform_splice_ratio --mode sqtl --outdir $outdir/QTL_results  --run
 ```
-You can specify QTL types and models via CLI options.
 
-
-### Step 3: Format QTL results
+#### Step 3: Format QTL results
+#### isoQTL and irQTL
 ```bash
-isoqmap isoqtl format 
-# sqtl
-isoqmap isoqtl format --infile 'workdir/QTL_results/osca_qtl.*.sqtl_10_*_isoform_eQTL_effect.txt.gz' --mode sqtl --ref gencode_38 --id2rs-file path/to/anno_into.tsv.gz
-# eqtl 
-isoqmap isoqtl format --infile 'workdir/QTL_results/osca_qtl.gene_abundance.eqtl_10_*.besd' --mode eqtl --ref gencode_38 --id2rs-file path/to/anno_into.tsv.gz
+isoqmap isoqtl format --infile "$outdir/QTL_results/osca_qtl_job.*.sqtl_10_*_isoform_eQTL_effect.txt" --mode sqtl --ref gencode_38      
+```
+##### 
+```bash
+isoqmap isoqtl format --infile "$outdir/QTL_results/osca_qtl_job*eqtl_10_*.besd" --mode eqtl --ref gencode_38  
 ```
 This step formats the results for downstream Mendelian Randomization (MR), Colocalization (coloc), or other integrative analyses.
 

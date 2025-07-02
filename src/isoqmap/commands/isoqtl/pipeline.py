@@ -8,6 +8,8 @@ from .call import run_osca_task
 from .format import run_format
 from ...tools import pathfinder, common
 from ...tools.downloader import download_reference, download_osca
+import configparser
+
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -45,15 +47,15 @@ def precheck(ref):
     gene_bed_fi = str(binfinder.find(f'./resources/ref/{ref}/anno_gene_info.bed'))
     logger.info(f"Reference check completed. Gene BED file: {gene_bed_fi}")
 
-
 @click.command()
-@click.option('--outdir', required=True, help='Output directory for the entire pipeline.')
 @click.option('--ref', default='gencode_38', help='Reference version, e.g. gencode_38')
+@click.option('--isoform', '-i', required=True, help='Isoform expression file.')
 @click.option('--bfile', required=True, help='Prefix of PLINK binary genotype file.')
-@click.option('--covariates', default='QTL_covariate.tsv', help='Covariate file path.')
-@click.option('--config', required=True, help='Path to config file.')
+@click.option('--covariates', required=True, type=click.Path(exists=True), help='Covariate file.')
+@click.option('-c', '--config', type=click.Path(exists=True), help='Configuration file')
+@click.option('--outdir', default='./workdir', help='Output directory')
 @click.option('--force', is_flag=True, default=False, help='Force overwrite of existing files.')
-def pipeline(outdir, ref, bfile, covariates, config, force):
+def pipeline(outdir, ref, bfile, isoform, covariates, config, force):
     """
     Run the full IsoQTL pipeline: preprocess → call → format
     """
@@ -76,12 +78,16 @@ def pipeline(outdir, ref, bfile, covariates, config, force):
         logger.info("Preprocess output exists. Skipping preprocessing.")
     else:
         run_preprocess(
-            input_file=os.path.join(outdir, "results", "XAEM_isoform_expression_tpm.tsv.gz"),
-            outdir=outdir,
+            isoform=isoform,
+            covariates=covariates,
             ref=ref,
-            covariates=covariates
+            isoform_ratio=True,
+            prefix='IsoQ',
+            outdir=outdir,
+            tpm_threshold=0.1,
+            sample_threshold_ratio=0.2,
+            force=False
         )
-
     # 第二步 call
     logger.info("[Pipeline] Step 2: Running IsoQTL calls...")
 
@@ -90,53 +96,67 @@ def pipeline(outdir, ref, bfile, covariates, config, force):
             "name": "eQTL",
             "befile": os.path.join(outdir, "BOD_files", "IsoQ.gene_abundance"),
             "mode": "eqtl",
+            "outprefix": 'osca_qtl_job.IsoQ.gene_abundance.eqtl',
             "pattern": os.path.join(outdir, "QTL_results", "osca_qtl_job.IsoQ.gene_abundance.eqtl_10_*.besd"),
         },
         {
             "name": "isoQTL",
             "befile": os.path.join(outdir, "BOD_files", "IsoQ.isoform_abundance"),
             "mode": "sqtl",
+            "outprefix": '"osca_qtl_job.IsoQ.isoform_abundance.sqtl',
             "pattern": os.path.join(outdir, "QTL_results", "osca_qtl_job.IsoQ.isoform_abundance.sqtl_10_*.besd"),
         },
         {
             "name": "irQTL",
             "befile": os.path.join(outdir, "BOD_files", "IsoQ.isoform_splice_ratio"),
             "mode": "sqtl",
+            "outprefix": "osca_qtl_job.IsoQ.isoform_splice_ratio.sqtl",
             "pattern": os.path.join(outdir, "QTL_results", "osca_qtl_job.IsoQ.isoform_splice_ratio.sqtl_10_*.besd"),
         }
     ]
 
+    osca_bin = str(binfinder.find('./resources/osca'))
     for task in call_tasks:
         existing_files = glob.glob(task["pattern"])
         if existing_files and not force:
             logger.info(f"{task['name']} results exist. Skipping call.")
         else:
             run_osca_task(
+                osca=osca_bin,
                 bfile=bfile,
                 befile=task["befile"],
-                mode=task["mode"],
                 outdir=os.path.join(outdir, "QTL_results"),
-                config=config
+                prefix=task["outprefix"],
+                mode=task["mode"],
+                config = config,
+                bed_file = None,
             )
-
     # 第三步 format
     logger.info("[Pipeline] Step 3: Formatting QTL results...")
 
     # isoQTL & irQTL
     run_format(
+        verbose=True,
         infile=os.path.join(outdir, "QTL_results", "osca_qtl_job.*.sqtl_10_*_isoform_eQTL_effect.txt"),
         mode="sqtl",
-        ref=ref
+        ref=ref,
+        id2rs_file=False,
+        id2rs_idname='ID',
+        id2rs_rsname='rsid',
+        processes=10
+        
     )
     # eQTL
     run_format(
+        verbose=True,
         infile=os.path.join(outdir, "QTL_results", "osca_qtl_job*eqtl_10_*.besd"),
         mode="eqtl",
-        ref=ref
+        ref=ref,
+        id2rs_file=False,
+        id2rs_idname='ID',
+        id2rs_rsname='rsid',
+        processes=10
+        
     )
-
-    logger.info("IsoQTL pipeline finished successfully.")
-
-
 if __name__ == "__main__":
     pipeline()

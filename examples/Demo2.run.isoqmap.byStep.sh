@@ -5,7 +5,7 @@ isoqmap isoquan -i fq.list \
                 -o $outdir \
                 --ref gencode_38
 
-#isoform qtl mappint
+#isoform qtl mapping
 ## data propcoess
 isoqmap isoqtl preprocess -i $outdir/results/XAEM_isoform_expression_tpm.tsv.gz \
                           --isoform-ratio --ref gencode_38 \

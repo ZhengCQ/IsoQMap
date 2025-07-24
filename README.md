@@ -106,7 +106,7 @@ isoqmap isoquan -i /path/to/infastq_lst.tsv
 
 ### Pipline quick start (precess -> qtl calling -> format)
 ```bash
-isoqmap isoqtl pipeline -i   /path/to/XAEM_isoform_expression_tpm.tsv.gz  --bfile  /path/to/genotype_for_isoqmap --covariates QTL_covariate.tsv
+isoqmap isoqtl pipeline -i   /path/to/XAEM_isoform_expression_tpm.tsv.gz  --bfile  /path/to/genotype_for_isoqmap --covariates QTL_covariate.tsv 
 ```
 #### bfile demo
 ```text
@@ -136,6 +136,10 @@ genotype_for_isoqmap.bed  genotype_for_isoqmap.bim  genotype_for_isoqmap.fam
   ```bash
    -o path/to/workdir
   ```
+- Specify a prefix
+  ```bash
+   -outprefix qtl_job
+  ``` 
 ---
 
 ### Run by each model

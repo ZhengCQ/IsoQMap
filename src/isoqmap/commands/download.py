@@ -19,3 +19,4 @@ def download(ctx, ref, version, files):
 
     files_requested = files.split(',') if files != 'all' else ['all']
     download_reference(version, files_requested)
+    

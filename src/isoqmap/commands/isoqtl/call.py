@@ -19,9 +19,28 @@ def resolve_config(config_path):
         cfg.read(binfinder.find('./config.ini'), encoding="utf-8")
     return cfg
 
-def run_osca_task(osca, bfile, befile, outdir, prefix, mode, config, bed_file=None):
+def get_bed_fi(ref):
+    gene_bed_fi = str(binfinder.find(f'./resources/ref/{ref}/anno_gene_info.bed'))
+    if not Path(gene_bed_fi).exists():
+        gene_info_fi = str(binfinder.find(f'./resources/ref/{ref}/transcript_gene_info.tsv.gz'))
+        if not common.check_file_exists(gene_info_fi, f"Gene annotation file {gene_info_fi}", logger, exit_on_error=False):
+            print(f"Gene annotation file not found. Downloading for {ref}...")
+            download_reference(ref, ['geneinfo'])
+            gene_info_fi = str(binfinder.find(f'./resources/ref/{ref}/transcript_gene_info.tsv.gz'))
+        gene_bed_fi = common.geneinfo_2bed(gene_info_fi)
+        if not Path(gene_bed_fi).exists():
+            raise FileNotFoundError("BED file generation failed.")
+    return gene_bed_fi
+        
+
+def run_osca_task(osca, bfile, befile, outdir, prefix, mode, config,ref):
     assert mode in ['sqtl', 'eqtl'], "mode must be 'sqtl' or 'eqtl'"
     cfg = resolve_config(config)
+    if osca is None:
+        osca = str(binfinder.find('./resources/osca'))
+        if not common.check_file_exists(osca, f"OSCA in :{osca}", logger, exit_on_error=False):
+            osca = download_osca()
+    
 
     befile = Path(befile).resolve()
     outdir = Path(outdir).resolve()
@@ -48,8 +67,9 @@ def run_osca_task(osca, bfile, befile, outdir, prefix, mode, config, bed_file=No
         ]
         if mode == "sqtl":
             cmd.append("--to-smr")
-            if bed_file:
-                cmd += ["--bed", str(bed_file)]
+            bed_file = get_bed_fi(ref)
+            cmd += ["--bed", str(bed_file)]
+                
 
         logger.info(f"[Task {task_id}] Running OSCA: {' '.join(cmd)}")
         procs.append(subprocess.Popen(cmd))
@@ -64,11 +84,16 @@ def write_script(filename: Path, content: str):
     filename.write_text(content)
     print(f"写入脚本: {filename}")
 
-def generate_osca_script(osca, bfile, befile, outdir, prefix, mode, bed_file, config, backend):
+
+def generate_osca_script(osca, bfile, befile, outdir, prefix, mode, config, backend,ref):
     cfg = resolve_config(config)
     task_num = cfg.getint('osca', 'task_num')
     thread_num = cfg.getint('osca', 'thread_num')
-
+    if osca is None:
+        osca = str(binfinder.find('./resources/osca'))
+        if not common.check_file_exists(osca, f"OSCA in :{osca}", logger, exit_on_error=False):
+            osca = download_osca()
+            
     cmd = f"""
 osca="{osca}"
 bfile="{bfile}"
@@ -82,8 +107,9 @@ $osca --{mode} --bfile $bfile --befile $befile --maf {cfg.get('osca','maf')} --c
 
     if mode == "sqtl":
         cmd += " --to-smr"
-        if bed_file:
-            cmd += f" --bed {bed_file}"
+        bed_file = get_bed_fi(ref)
+        cmd += ["--bed", str(bed_file)]
+            
     cmd += " --out $outdir/$prefix"
 
     # SLURM
@@ -130,8 +156,8 @@ wait
     else:
         raise ValueError("backend 必须是 'slurm', 'sge', 或 'shell'")
 
-def batch_generate_scripts(osca, bfile, befile, outdir, prefix, mode, bed_file, config, backend):
-    generate_osca_script(osca, bfile, befile, outdir, prefix, mode, bed_file, config, backend)
+def batch_generate_scripts(osca, bfile, befile, outdir, prefix, mode, config, backend):
+    generate_osca_script(osca, bfile, befile, outdir, prefix, mode, config, backend)
 
 @click.command()
 @click.option('--osca', default=None, help='Path to OSCA binary')
@@ -149,28 +175,12 @@ def call(osca, bfile, befile, mode, ref, outdir, prefix, backend, config, run):
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
-    if osca is None:
-        osca = str(binfinder.find('./resources/osca'))
-        if not common.check_file_exists(osca, f"OSCA in :{osca}", logger, exit_on_error=False):
-            osca = download_osca()
-
-    gene_bed_fi = str(binfinder.find(f'./resources/ref/{ref}/anno_gene_info.bed'))
-    if not Path(gene_bed_fi).exists():
-        gene_info_fi = str(binfinder.find(f'./resources/ref/{ref}/transcript_gene_info.tsv.gz'))
-        if not common.check_file_exists(gene_info_fi, f"Gene annotation file {gene_info_fi}", logger, exit_on_error=False):
-            print(f"Gene annotation file not found. Downloading for {ref}...")
-            download_reference(ref, ['geneinfo'])
-            gene_info_fi = str(binfinder.find(f'./resources/ref/{ref}/transcript_gene_info.tsv.gz'))
-        gene_bed_fi = common.geneinfo_2bed(gene_info_fi)
-        if not Path(gene_bed_fi).exists():
-            raise FileNotFoundError("BED file generation failed.")
     befile_names = os.path.basename(befile)
     prefix = f'{prefix}.{befile_names}'
-    bed_file = gene_bed_fi if mode == 'sqtl' else None
     if not prefix.endswith(mode):
         prefix = f"{prefix}.{mode}"
 
     if run:
-        run_osca_task(osca, bfile, befile, outdir, prefix, mode, config, bed_file)
-    batch_generate_scripts(osca, bfile, befile, outdir, prefix, mode, bed_file, config, backend)
+        run_osca_task(osca, bfile, befile, outdir, prefix, mode, config, ref)
+    batch_generate_scripts(osca, bfile, befile, outdir, prefix, mode, config, backend, ref)
 

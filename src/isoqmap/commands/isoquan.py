@@ -413,6 +413,9 @@ def run_isoquan(infile, ref, config, outdir, xaem_dir, xaem_index, x_matrix, for
 @click.option('--x-matrix', help='X matrix file')
 @click.option('--force', is_flag=True, help='Force to restart all jobs')
 def isoquan(verbose, infile, ref, **kwargs):
+    """
+    Isoform quantification
+    """
     log_file = f'{datetime.datetime.now():%Y-%m-%d}.isoquan.info.log'
     if os.path.exists(log_file):
         os.remove(log_file)

@@ -53,9 +53,10 @@ def precheck(ref):
 @click.option('--bfile', required=True, help='Prefix of PLINK binary genotype file.')
 @click.option('--covariates', required=True, type=click.Path(exists=True), help='Covariate file.')
 @click.option('-c', '--config', type=click.Path(exists=True), help='Configuration file')
-@click.option('--outdir', default='./workdir', help='Output directory')
+@click.option('--outdir', default='./workdir', help='Output directory. default: ./workdir')
+@click.option('--outprefix', default='osca_qtl_job', help='Prefix of output file. default: osca_qtl_job')
 @click.option('--force', is_flag=True, default=False, help='Force overwrite of existing files.')
-def pipeline(outdir, ref, bfile, isoform, covariates, config, force):
+def pipeline(outdir, ref, bfile, isoform, covariates, config, outprefix, force):
     """
     Run the full IsoQTL pipeline: preprocess → call → format
     """
@@ -96,22 +97,22 @@ def pipeline(outdir, ref, bfile, isoform, covariates, config, force):
             "name": "eQTL",
             "befile": os.path.join(outdir, "BOD_files", "IsoQ.gene_abundance"),
             "mode": "eqtl",
-            "outprefix": 'osca_qtl_job.IsoQ.gene_abundance.eqtl',
-            "pattern": os.path.join(outdir, "QTL_results", "osca_qtl_job.IsoQ.gene_abundance.eqtl_10_*.besd"),
+            "outprefix": f'{outprefix}.IsoQ.gene_abundance.eqtl',
+            "pattern": os.path.join(outdir, "QTL_results", f"{outprefix}.IsoQ.gene_abundance.eqtl_10_*.besd"),
         },
         {
             "name": "isoQTL",
             "befile": os.path.join(outdir, "BOD_files", "IsoQ.isoform_abundance"),
             "mode": "sqtl",
-            "outprefix": '"osca_qtl_job.IsoQ.isoform_abundance.sqtl',
-            "pattern": os.path.join(outdir, "QTL_results", "osca_qtl_job.IsoQ.isoform_abundance.sqtl_10_*.besd"),
+            "outprefix": f'{outprefix}.IsoQ.isoform_abundance.sqtl',
+            "pattern": os.path.join(outdir, "QTL_results", f"{outprefix}.IsoQ.isoform_abundance.sqtl_10_*.besd"),
         },
         {
             "name": "irQTL",
             "befile": os.path.join(outdir, "BOD_files", "IsoQ.isoform_splice_ratio"),
             "mode": "sqtl",
-            "outprefix": "osca_qtl_job.IsoQ.isoform_splice_ratio.sqtl",
-            "pattern": os.path.join(outdir, "QTL_results", "osca_qtl_job.IsoQ.isoform_splice_ratio.sqtl_10_*.besd"),
+            "outprefix": f"{outprefix}.IsoQ.isoform_splice_ratio.sqtl",
+            "pattern": os.path.join(outdir, "QTL_results", f"{outprefix}.IsoQ.isoform_splice_ratio.sqtl_10_*.besd"),
         }
     ]
 
@@ -129,7 +130,7 @@ def pipeline(outdir, ref, bfile, isoform, covariates, config, force):
                 prefix=task["outprefix"],
                 mode=task["mode"],
                 config = config,
-                bed_file = None,
+                ref=ref
             )
     # 第三步 format
     logger.info("[Pipeline] Step 3: Formatting QTL results...")
@@ -137,7 +138,7 @@ def pipeline(outdir, ref, bfile, isoform, covariates, config, force):
     # isoQTL & irQTL
     run_format(
         verbose=True,
-        infile=os.path.join(outdir, "QTL_results", "osca_qtl_job.*.sqtl_10_*_isoform_eQTL_effect.txt"),
+        infile=os.path.join(outdir, "QTL_results", f"{outprefix}.*.sqtl_10_*_isoform_eQTL_effect.txt"),
         mode="sqtl",
         ref=ref,
         id2rs_file=False,
@@ -149,7 +150,7 @@ def pipeline(outdir, ref, bfile, isoform, covariates, config, force):
     # eQTL
     run_format(
         verbose=True,
-        infile=os.path.join(outdir, "QTL_results", "osca_qtl_job*eqtl_10_*.besd"),
+        infile=os.path.join(outdir, "QTL_results", f"{outprefix}*eqtl_10_*.besd"),
         mode="eqtl",
         ref=ref,
         id2rs_file=False,

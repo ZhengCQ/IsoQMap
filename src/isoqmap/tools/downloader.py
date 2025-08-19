@@ -36,19 +36,28 @@ REFERENCE_DATA = {
 
         },
         "transcript": {
-            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/refseq_38.transcript.fa.gz",
-            "sha256": "..."
+            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/refseq_38.110.transcript.fa.gz",
+            "sha256": "sha256:61539d23a315690c0d5d609aef9c956c596abfd4e7d0206c6dabc75b56ceceb7"
+            "filename": "transcript.fa.gz"
+            
         },
     },
     "pig_110":{
         "X_matrix": {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/pig_110.X_matrix.RData.gz",
-            "sha256": "900cd4a7e037e3ac11eb9b0d0c08f7b3fea488321a16b7d000d8312d647e5795"  
+            "sha256": "900cd4a7e037e3ac11eb9b0d0c08f7b3fea488321a16b7d000d8312d647e5795",
+            "filename": "X_matrix.RData.gz"
         },
         "transcript": {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/pig_110.transcript.fa.gz",
-            "sha256": "09379a4f747525eea821a1f56e79a6dacfe4a4a2f3f0c9d43e3fa1c8a37ed53d"  
-        },         
+            "sha256": "09379a4f747525eea821a1f56e79a6dacfe4a4a2f3f0c9d43e3fa1c8a37ed53d",
+            "filename": "transcript.fa.gz"
+        }, 
+         "geneinfo":{
+            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/pig_110.transcript_gene_info.tsv.gz",
+            "sha256": "sha256:8d6117982502d7173c067e64f81894d276b22be1db8b83537095956a9bf7ef1e",
+            "filename": "transcript_gene_info.tsv.gz"
+            }     
     }
 }
 

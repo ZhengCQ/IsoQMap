@@ -14,6 +14,9 @@ import os
 from ...tools import pathfinder, common
 from ...tools.downloader import download_reference,download_osca
 
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
+
 # Initialize path finder
 binfinder = pathfinder.BinPathFinder('isomap')
 
@@ -155,7 +158,7 @@ def fetch_sig(fi):
         
         # For Gene
         fi_gene = f'{base_name}.format.gene.txt'
-        df_format = pd.read_csv(fi_gene, sep='\t')
+        df_format = pd.read_csv(fi_gene, sep='\t',low_memory=False)
         df_format = df_format.dropna()
         
         # Get significant genes (p < cutoff)
@@ -179,7 +182,7 @@ def fetch_sig(fi):
 
         # For isoform
         fi_isoform = f'{base_name}.format.isoform.txt'
-        df_format_isoform = pd.read_csv(fi_isoform, sep='\t')
+        df_format_isoform = pd.read_csv(fi_isoform, sep='\t',low_memory=False)
         df_format_isoform = df_format_isoform.dropna()
 
         sig_isoform = df_format_isoform[df_format_isoform['pval'] < p_cut]['pheno_name'].drop_duplicates()
@@ -260,7 +263,7 @@ def process_gene_data(input_path: str) -> None:
         logger.info(f"Processing: {input_path} → {output_path}")
         
         # Read data
-        df_gene = pd.read_csv(input_path, sep='\t', compression='gzip')
+        df_gene = pd.read_csv(input_path, sep='\t', compression='gzip',low_memory=False)
         
         # Validate required columns
         required_columns = {'SNP', 'Gene', 'BP', 'Freq', 'b', 'SE', 'p', 'Probe'}
@@ -345,12 +348,120 @@ def safe_process_gene_data(fi):
         return False
     return True
 
-def run_format(verbose, infile, mode, ref, id2rs_file, id2rs_idname, id2rs_rsname, processes):
-    """Main processing function"""
-    try:
-        # Find gene info file
-        gene_info_fi = str(binfinder.find(f'./resources/ref/{ref}/transcript_gene_info.tsv.gz'))    
+# def run_format(verbose, infile, mode, ref, id2rs_file, id2rs_idname, id2rs_rsname, processes):
+#     """Main processing function"""
+#     try:
+#         # Find gene info file
+#         gene_info_fi = str(binfinder.find(f'./resources/ref/{ref}/transcript_gene_info.tsv.gz'))    
         
+#         if not common.check_file_exists(
+#             gene_info_fi,
+#             file_description=f"Gene annotation file {gene_info_fi}",
+#             logger=logger,
+#             exit_on_error=False
+#         ):
+#             logger.info(f"Gene annotation file not found. Downloading for {ref}...")
+#             download_reference(ref, ['geneinfo'])
+#             gene_info_fi = str(binfinder.find(f'./resources/ref/{ref}/transcript_gene_info.tsv.gz')) 
+
+#         # Load required data
+#         load_global_data(id2rs_file, gene_info_fi, id2rs_idname, id2rs_rsname)
+        
+#         # Process files based on mode
+#         files_to_process = glob.glob(infile)
+
+        
+#         if not files_to_process:
+#             logger.error(f"No files matched pattern: {infile}")
+#             return
+        
+#         logger.info(f"Found {len(files_to_process)} files to process")
+
+#         with Pool(processes=processes) as pool:
+#             if mode == 'sqtl':
+#                 # First pass: format files
+#                 results = pool.map(safe_format_file, files_to_process)
+#                 failed = sum(1 for r in results if not r)
+#                 if failed > 0:
+#                     logger.warning(f"Failed to process {failed} files in format step")
+                
+#                 # Second pass: extract significant results
+#                 results = pool.map(safe_fetch_sig, files_to_process)
+#                 failed = sum(1 for r in results if not r)
+#                 if failed > 0:
+#                     logger.warning(f"Failed to extract significant results from {failed} files")
+#             else:
+#                 ## check and download osca
+#                 osca_bin = str(binfinder.find('./resources/osca'))
+#                 if not common.check_file_exists(
+#                     osca_bin,
+#                     file_description=f"OSCA in :{osca_bin}",
+#                     logger=logger,
+#                     exit_on_error=False
+#                 ):
+#                     osca_bin = download_osca()
+                
+                
+#                 files_besd_to_process = []
+#                 for i in files_to_process:
+#                     if not i.endswith('.besd') and not os.path.exists(i):
+#                         logger.warning(f"{i} failed to query from besd to txt because {i} not exits or not endwiths *besd ")
+#                         continue
+#                     elif os.path.exists(i.replace('.besd', '.txt.gz')):
+#                         logger.warning(f"{i} failed to query from besd to txt because results {i.replace('.besd', '.txt.gz')} exits")
+#                         continue
+#                     files_besd_to_process.append(i)  
+                
+#                 if len(files_besd_to_process)>0:
+#                     # convert BESD files
+#                     results = pool.map(safe_besd2txt, files_besd_to_process)
+#                     failed = sum(1 for r in results if not r)
+#                     if failed > 0:
+#                         logger.warning(f"Failed to convert {failed} BESD files")
+                              
+#                 # Second pass: process gene data
+#                 txt_files = []  
+#                 for i in files_to_process:
+#                     txt_fi = i.replace('.besd', '.txt.gz')
+#                     if not os.path.exists(txt_fi) or not txt_fi.endswith('.txt.gz'):
+#                         logger.warning(f"{txt_fi} failed to query from besd to txt because {txt_fi} not exits or not endwiths *besd ")
+#                         continue
+#                     txt_files.append(txt_fi)
+#                 results = pool.map(safe_process_gene_data, txt_files)
+#                 failed = sum(1 for r in results if not r)
+#                 if failed > 0:
+#                     logger.warning(f"Failed to process {failed} gene data files")
+        
+#         logger.info("Processing completed with %d errors" % failed)
+
+#     except Exception as e:
+#         logger.error(f"Error in run_format: {str(e)}")
+#         raise
+
+def run_tasks(task_list, func, processes, label):
+    """Run tasks in parallel using ProcessPoolExecutor with logging"""
+    failed = 0
+    with ProcessPoolExecutor(max_workers=processes) as executor:
+        futures = {executor.submit(func, task): task for task in task_list}
+        for future in as_completed(futures):
+            task = futures[future]
+            try:
+                result = future.result()
+                if not result:
+                    logger.warning(f"[{label}] Task failed: {task}")
+                    failed += 1
+            except Exception as e:
+                logger.error(f"[{label}] Task crashed: {task}, Error: {str(e)}")
+                failed += 1
+    return failed
+
+def run_format(verbose, infile, mode, ref, id2rs_file, id2rs_idname, id2rs_rsname, processes):
+    """Main processing logic with improved multiprocessing robustness"""
+
+    try:
+        # Prepare reference gene info
+        gene_info_fi = str(binfinder.find(f'./resources/ref/{ref}/transcript_gene_info.tsv.gz'))
+
         if not common.check_file_exists(
             gene_info_fi,
             file_description=f"Gene annotation file {gene_info_fi}",
@@ -359,81 +470,49 @@ def run_format(verbose, infile, mode, ref, id2rs_file, id2rs_idname, id2rs_rsnam
         ):
             logger.info(f"Gene annotation file not found. Downloading for {ref}...")
             download_reference(ref, ['geneinfo'])
-            gene_info_fi = str(binfinder.find(f'./resources/ref/{ref}/transcript_gene_info.tsv.gz')) 
+            gene_info_fi = str(binfinder.find(f'./resources/ref/{ref}/transcript_gene_info.tsv.gz'))
 
-        # Load required data
+        # Load mapping data
         load_global_data(id2rs_file, gene_info_fi, id2rs_idname, id2rs_rsname)
-        
-        # Process files based on mode
-        files_to_process = glob.glob(infile)
 
-        
+        # Get file list
+        files_to_process = glob.glob(infile)
         if not files_to_process:
             logger.error(f"No files matched pattern: {infile}")
             return
-        
-        logger.info(f"Found {len(files_to_process)} files to process")
 
-        with Pool(processes=processes) as pool:
-            if mode == 'sqtl':
-                # First pass: format files
-                results = pool.map(safe_format_file, files_to_process)
-                failed = sum(1 for r in results if not r)
-                if failed > 0:
-                    logger.warning(f"Failed to process {failed} files in format step")
-                
-                # Second pass: extract significant results
-                results = pool.map(safe_fetch_sig, files_to_process)
-                failed = sum(1 for r in results if not r)
-                if failed > 0:
-                    logger.warning(f"Failed to extract significant results from {failed} files")
-            else:
-                ## check and download osca
-                osca_bin = str(binfinder.find('./resources/osca'))
-                if not common.check_file_exists(
-                    osca_bin,
-                    file_description=f"OSCA in :{osca_bin}",
-                    logger=logger,
-                    exit_on_error=False
-                ):
-                    osca_bin = download_osca()
-                
-                
-                files_besd_to_process = []
-                for i in files_to_process:
-                    if not i.endswith('.besd') and not os.path.exists(i):
-                        logger.warning(f"{i} failed to query from besd to txt because {i} not exits or not endwiths *besd ")
-                        continue
-                    elif os.path.exists(i.replace('.besd', '.txt.gz')):
-                        logger.warning(f"{i} failed to query from besd to txt because results {i.replace('.besd', '.txt.gz')} exits")
-                        continue
-                    files_besd_to_process.append(i)  
-                
-                if len(files_besd_to_process)>0:
-                    # convert BESD files
-                    results = pool.map(safe_besd2txt, files_besd_to_process)
-                    failed = sum(1 for r in results if not r)
-                    if failed > 0:
-                        logger.warning(f"Failed to convert {failed} BESD files")
-                              
-                # Second pass: process gene data
-                txt_files = []  
-                for i in files_to_process:
-                    txt_fi = i.replace('.besd', '.txt.gz')
-                    if not os.path.exists(txt_fi) or not txt_fi.endswith('.txt.gz'):
-                        logger.warning(f"{txt_fi} failed to query from besd to txt because {txt_fi} not exits or not endwiths *besd ")
-                        continue
-                    txt_files.append(txt_fi)
-                results = pool.map(safe_process_gene_data, txt_files)
-                failed = sum(1 for r in results if not r)
-                if failed > 0:
-                    logger.warning(f"Failed to process {failed} gene data files")
+        logger.info(f"Found {len(files_to_process)} files to process in mode: {mode}")
         
-        logger.info("Processing completed with %d errors" % failed)
+        if mode == 'sqtl':
+            # --- Step 1: Format ---
+            failed_format = run_tasks(files_to_process, safe_format_file, processes, "Format")
+            # --- Step 2: Fetch Significant ---
+            failed_sig = run_tasks(files_to_process, safe_fetch_sig, processes, "FetchSig")
+            logger.info(f"sqtl done. Format failures: {failed_format}, Sig failures: {failed_sig}")
+        
+        elif mode == 'eqtl':
+            # --- Step 1: Convert BESD to txt.gz ---
+            files_besd = [
+                f for f in files_to_process 
+                if f.endswith('.besd') and not os.path.exists(f.replace('.besd', '.txt.gz'))
+            ]
+            failed_besd = run_tasks(files_besd, safe_besd2txt, processes, "BESD2TXT")
+
+            # --- Step 2: Process gene data ---
+            txt_files = [f.replace('.besd', '.txt.gz') for f in files_to_process if os.path.exists(f.replace('.besd', '.txt.gz'))]
+            failed_gene = run_tasks(txt_files, safe_process_gene_data, processes, "ProcessGene")
+            logger.info(f"eqtl done. BESD failures: {failed_besd}, Gene processing failures: {failed_gene}")
+        
+        else:
+            logger.error(f"Unsupported mode: {mode}")
+            return
+
+        logger.info("✔ All processing completed.")
 
     except Exception as e:
-        logger.error(f"Error in run_format: {str(e)}")
+        logger.error(f"❌ Fatal error in run_format: {str(e)}")
         raise
+
 
 @click.command(name="format")
 @click.option('--verbose', is_flag=True, help='Enable verbose output')
@@ -449,8 +528,8 @@ def run_format(verbose, infile, mode, ref, id2rs_file, id2rs_idname, id2rs_rsnam
               help='Column name for variant ID in id2rs file, defualt: ID')
 @click.option('--id2rs-rsname', default='rsid', 
               help='Column name for rsID in id2rs file, defualt: rsid')
-@click.option('--processes', default=10, type=int,
-              help='Number of parallel processes to use, default: 10')
+@click.option('--processes', default=5, type=int,
+              help='Number of parallel processes to use, default: 5')
 
 def qtlformat(verbose, infile, mode, **kwargs):
     """Format QTL results for downstream usage"""

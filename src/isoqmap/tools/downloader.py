@@ -11,7 +11,7 @@ import zipfile
 
 # 定义支持的数据版本及其对应文件和哈希值
 REFERENCE_DATA = {
-    "gencode_38": {
+    "gencode_38_v42": {
         "X_matrix": {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.v41.X_matrix.RData.gz",
             "sha256": "f088e4f29e9d582fca4e6e4b46a7e08a8358d89a3661c910bbe73c44a80e52d0",
@@ -28,6 +28,23 @@ REFERENCE_DATA = {
             "filename": "transcript_gene_info.tsv.gz"
             } 
     },
+    "gencode_38": {
+        "X_matrix": {
+            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.v39.X_matrix.RData.gz",
+            "sha256": "445bce7cb49f11c08b505dfa00d2b6d9666142160e7f37c050476882ee19692c",
+            "filename": "X_matrix.RData.gz"
+        },
+        "transcript": {
+            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.v39.transcript.fa.gz",
+            "sha256": "7eb1097943b2169ff1f808350d96ae6f32593fd7fdd9e29f63e12ed7e5c7de81",
+            "filename": "transcript.fa.gz"  
+        },
+        "geneinfo":{
+            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/gencode_38.v39.transcript_gene_info.tsv.gz",
+            "sha256": "ce44c902780d03030e86c61af21a0fe7cb2a470181e8d67e3487d940b6ac667d",
+            "filename": "transcript_gene_info.tsv.gz"
+            } 
+    },
     "refseq_38": {
         "X_matrix": {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/refseq_38.110.X_matrix.RData",
@@ -37,10 +54,15 @@ REFERENCE_DATA = {
         },
         "transcript": {
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/refseq_38.110.transcript.fa.gz",
-            "sha256": "sha256:61539d23a315690c0d5d609aef9c956c596abfd4e7d0206c6dabc75b56ceceb7"
+            "sha256": "61539d23a315690c0d5d609aef9c956c596abfd4e7d0206c6dabc75b56ceceb7",
             "filename": "transcript.fa.gz"
             
         },
+         "geneinfo":{
+            "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/refseq_38.110.transcript_gene_info.tsv.gz",
+            "sha256": "c4cd130026914d72c866b9f1e11773ab3946f60336ae7efaf57fb9d8112e90fc",
+            "filename": "transcript_gene_info.tsv.gz"
+        } 
     },
     "pig_110":{
         "X_matrix": {
@@ -55,7 +77,7 @@ REFERENCE_DATA = {
         }, 
          "geneinfo":{
             "url": "https://github.com/ZhengCQ/IsoQMap/releases/download/v1.0.0/pig_110.transcript_gene_info.tsv.gz",
-            "sha256": "sha256:8d6117982502d7173c067e64f81894d276b22be1db8b83537095956a9bf7ef1e",
+            "sha256": "70c520618afb11137e7ab072eb282e49d28e6e37ea1c4dd98696a98ac4fcb9ba",
             "filename": "transcript_gene_info.tsv.gz"
             }     
     }

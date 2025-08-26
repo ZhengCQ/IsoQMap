@@ -85,20 +85,6 @@ REFERENCE_DATA = {
 
 RESOURCE_ROOT = Path(__file__).resolve().parent.parent / "resources" / "ref"
 
-def sha256sum(file_path):
-    h = hashlib.sha256()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-def decompress_gz(file_path):
-    output_path = file_path.with_suffix('')
-    print(f"Decompressing {file_path} -> {output_path}")
-    with gzip.open(file_path, 'rb') as f_in, open(output_path, 'wb') as f_out:
-        shutil.copyfileobj(f_in, f_out)
-    print(f"✔ Decompressed: {output_path}")
-    
 def decompress_zip(file_path):
     output_dir = Path(file_path).parent
     print(f"Decompressing {file_path} -> {output_dir}")
@@ -106,44 +92,97 @@ def decompress_zip(file_path):
         zip_ref.extractall(output_dir)
     print(f"✔ Decompressed to directory: {output_dir}")
 
-def download_file_with_retry(url, dest_path, retries=6, delay=3):
+# -------------------------------
+# 计算文件 SHA256
+# -------------------------------
+def sha256sum(filepath):
+    h = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+# -------------------------------
+# 检查是否需要下载
+# -------------------------------
+def need_download(dest, expected_sha256, expected_size=None):
+    if not dest.exists():
+        return True
+    if expected_size and dest.stat().st_size != expected_size:
+        print(f"⚠ File size mismatch: {dest.stat().st_size} != {expected_size}")
+        return True
+    if sha256sum(dest) != expected_sha256:
+        print(f"⚠ SHA256 mismatch for {dest}")
+        return True
+    return False
+
+# -------------------------------
+# 下载文件，支持断点续传
+# -------------------------------
+def download_file_with_resume(url, dest_path, retries=10, delay=5):
+    part_path = dest_path.with_suffix(dest_path.suffix + ".part")
+
     for attempt in range(1, retries + 1):
         try:
-            # 1. 检查本地是否已有部分内容
-            resume_byte_pos = os.path.getsize(dest_path) if os.path.exists(dest_path) else 0
-
+            resume_byte_pos = os.path.getsize(part_path) if part_path.exists() else 0
             headers = {"Range": f"bytes={resume_byte_pos}-"} if resume_byte_pos > 0 else {}
-            print(f"Attempt {attempt} to download {url} (resuming from {resume_byte_pos} bytes)")
 
-            with requests.get(url, headers=headers, stream=True, timeout=10) as response:
-                if response.status_code not in [200, 206]:
+            print(f"\nAttempt {attempt}/{retries}: Downloading {url} (resume from {resume_byte_pos} bytes)")
+
+            with requests.get(url, headers=headers, stream=True, timeout=30) as response:
+                if response.status_code in (200, 206):
+                    total = int(response.headers.get("content-length", 0)) + (resume_byte_pos if response.status_code == 206 else 0)
+                    mode = "ab" if response.status_code == 206 else "wb"
+                    if response.status_code == 206:
+                        print("✔ Server supports resume.")
+                    else:
+                        if resume_byte_pos > 0:
+                            print("⚠ Server does not support resume, restarting from beginning...")
+                            resume_byte_pos = 0
+
+                    downloaded = resume_byte_pos
+                    with open(part_path, mode) as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+                                downloaded += len(chunk)
+                                if total:
+                                    done = int(50 * downloaded / total)
+                                    print(f"\r[{'█'*done}{'.'*(50-done)}] {downloaded/total:.2%}", end="")
+                    print(f"\n✔ Download finished: {part_path}")
+
+                    # 下载完成后重命名为正式文件
+                    part_path.rename(dest_path)
+                    return True
+                else:
                     raise Exception(f"Unexpected status code: {response.status_code}")
-                
-                total = int(response.headers.get('content-length', 0)) + resume_byte_pos
-                downloaded = resume_byte_pos
 
-                mode = 'ab' if resume_byte_pos > 0 else 'wb'
-                with open(dest_path, mode) as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        if chunk:
-                            f.write(chunk)
-                            downloaded += len(chunk)
-                            done = int(50 * downloaded / total) if total else 0
-                            print(f"\r[{'█' * done}{'.' * (50 - done)}] {downloaded / total:.2%}", end='')
-
-            print(f"\n✔ Download succeeded: {dest_path}")
-            return True
-
+        except KeyboardInterrupt:
+            print(f"\n⏸ Download interrupted by user. Partial file saved as {part_path}")
+            return False
         except Exception as e:
             print(f"\n✘ Download failed: {e}")
             if attempt < retries:
                 print(f"Retrying after {delay} seconds...")
                 time.sleep(delay)
             else:
-                print("✘ Exceeded retry limit.")
+                print("✘ Exceeded maximum retries. Download aborted.")
                 return False
 
+# -------------------------------
+# 解压 .gz 文件
+# -------------------------------
+def decompress_gz(gz_path):
+    dest_path = gz_path.with_suffix('')
+    print(f"Decompressing {gz_path} -> {dest_path}")
+    with gzip.open(gz_path, 'rb') as f_in, open(dest_path, 'wb') as f_out:
+        shutil.copyfileobj(f_in, f_out)
+    print(f"✔ Decompressed: {dest_path}")
+    return dest_path
 
+# -------------------------------
+# 下载参考文件
+# -------------------------------
 def download_reference(version='gencode_38', files_requested=['all']):
     if version not in REFERENCE_DATA:
         raise ValueError(f"Unsupported reference version: {version}")
@@ -158,19 +197,12 @@ def download_reference(version='gencode_38', files_requested=['all']):
         filename = meta["filename"]
         dest = version_dir / filename
 
-        if dest.exists():
-            print(f"{dest} already exists. Verifying hash...")
-            if sha256sum(dest) == meta["sha256"]:
-                print(f"✔ Hash OK for {filename}, skipping download.")
-            else:
-                print(f"✘ Hash mismatch for {filename}, re-downloading...")
-                dest.unlink()
-        if not dest.exists():
-            success = download_file_with_retry(meta["url"], dest)
+        if need_download(dest, meta["sha256"], meta.get("size")):
+            success = download_file_with_resume(meta["url"], dest)
             if not success:
                 raise RuntimeError(f"Failed to download: {filename}")
 
-        print(f"Verifying downloaded file {filename}...")
+        # 下载完成后再次校验 SHA256
         if sha256sum(dest) != meta["sha256"]:
             print(f"✘ Hash mismatch after download. Deleting file.")
             dest.unlink()
@@ -178,13 +210,13 @@ def download_reference(version='gencode_38', files_requested=['all']):
 
         print(f"✔ Downloaded and verified: {dest}")
 
-        # 自动解压X_matrix文件（如果是.gz结尾）
+        # 自动解压 .gz 文件（例如 X_matrix 文件）
         if name == "X_matrix" and dest.suffix == ".gz":
             decompress_gz(dest)
 
 def download_osca():
     dest_dir = str(Path(__file__).resolve().parent.parent / "resources")
-    download_file_with_retry('https://yanglab.westlake.edu.cn/software/osca/download/osca-0.46.1-linux-x86_64.zip',
+    download_file_with_resume('https://yanglab.westlake.edu.cn/software/osca/download/osca-0.46.1-linux-x86_64.zip',
                             dest_dir + '/' + 'osca-0.46.1-linux-x86_64.zip')
     decompress_zip(dest_dir + '/' + 'osca-0.46.1-linux-x86_64.zip')
     os.system(f'chmod 755 {dest_dir}/osca-0.46.1-linux-x86_64/osca && ln -fs {dest_dir}/osca-0.46.1-linux-x86_64/osca {dest_dir}/osca')

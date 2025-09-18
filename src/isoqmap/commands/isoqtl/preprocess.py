@@ -120,7 +120,10 @@ class CallNorm(object):
         return stats.norm.ppf((x.rank() - 0.5) / (~pd.isnull(x)).sum())
 
     def norm(self, df):
-        df_in = df.copy().iloc[:, 1:]
+        if 'gene_id' in df.columns:
+            df_in = df.drop('gene_id',axis=1)
+        else:
+            df_in = df.copy()
         df_in.fillna(0, inplace=True)
         df_in.loc[:, :] = [self.zscore(row) for row in df_in.values]
         return df_in.T

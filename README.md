@@ -11,6 +11,26 @@
 
 ---
 
+## Benchmark
+
+We provide a rough runtime benchmark on a standard HPC cluster
+(12 CPU cores, 256 GB RAM) to help users estimate resource needs.
+
+### Isoform Quantification (IsoQuan)
+
+- **Dataset**: ～700 RNA-seq samples  
+- **Steps**: indexing → eqclass → matrix  
+- **Total runtime**: **~19 h m**  
+
+### Isoform-level QTL Mapping (IsoQTL)
+
+- **Dataset**: ～700 matched samples, 10W isoforms  
+- **Steps**: preprocessing → normalization → OSCA association → formatting  
+- **Total runtime**: **~3 h m**  
+
+> *Timings will vary depending on hardware, cluster load, and number of samples/isoforms.*
+
+
 ## 📦 Prerequisites
 
 - Python ≥ 3.8

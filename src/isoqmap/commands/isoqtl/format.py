@@ -99,8 +99,8 @@ def format_file(fi):
                         continue
 
                     # Apply filters
-                    if float(freq) < 0.05:
-                        continue
+                    # if float(freq) < 0.05:
+                    #     continue
                     
                     if not id2rs:
                         snp = ids
@@ -278,7 +278,7 @@ def process_gene_data(input_path: str) -> None:
         df_gene = df_gene[df_gene['Gene'].isin(gene2tss)]
         df_gene['tss_dis'] = df_gene['Gene'].map(gene2tss) - df_gene['BP']
         
-        df_gene = df_gene[(df_gene['tss_dis'].abs() <= 1_000_000) & (df_gene['Freq'] > 0.05)]
+        df_gene = df_gene[(df_gene['tss_dis'].abs() <= 1_000_000)]
         
         # Rename and select columns
         df_gene_slim = df_gene.rename(columns={
